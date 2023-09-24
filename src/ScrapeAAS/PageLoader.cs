@@ -7,7 +7,6 @@ using Microsoft.Extensions.Options;
 using Polly;
 using PuppeteerSharp;
 using ScrapeAAS.Contracts;
-using ScrapeAAS.Contracts;
 using ScrapeAAS.PageLoader;
 
 namespace ScrapeAAS;
