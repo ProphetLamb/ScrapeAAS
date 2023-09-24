@@ -3,14 +3,14 @@ using RedditDotnetScraper;
 using Dawn;
 using AngleSharp.Dom;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddScrapeAAS()
     .AddHostedService<TopLevelRedditPostSpider>()
     .AddDataFlow<RedditPostCommentsSpider>()
-    .AddHostedService<RedditPostRelationalAggegator>().AddDataFlow<RedditPostRelationalAggegator>(useExistingSingleton: true);
+    .AddHostedService<RedditPostSqliteSink>().AddDataFlow<RedditPostSqliteSink>(useExistingSingleton: true)
+    .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"), ServiceLifetime.Singleton, ServiceLifetime.Singleton);
 var app = builder.Build();
 app.Run();
 
@@ -18,9 +18,6 @@ app.Run();
 sealed record RedditUserId(string Id);
 sealed record RedditTopLevelPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUserId PostedBy);
 sealed record RedditPostComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUserId PostedBy);
-// EF Core relational models
-sealed record RedditCommentTree(RedditPostComment Comment, List<RedditCommentTree> Children);
-sealed record RedditPost(RedditTopLevelPost TopLevel, List<RedditCommentTree> Comments);
 
 /// <summary>
 /// Scrapes the top level posts from the /r/dotnet subreddit.
@@ -123,133 +120,9 @@ sealed class RedditPostCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 }
 
 /// <summary>
-/// Inverts the relational structure of the scraped data from child n->1 parent to parent 1->n children.
-/// Debounced publishes posts that have not received comments for a while.
-/// </summary>
-sealed class RedditPostRelationalAggegator : BackgroundService, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
-{
-    private readonly IDataflowPublisher<RedditPost> _publisher;
-    private readonly ILogger<RedditPostRelationalAggegator> _logger;
-    private readonly ConcurrentDictionary<Url, (RedditPost Post, long InsertCommentMissCounter)> _postWithCounterByUrl = new();
-    private readonly ConcurrentBag<RedditPostComment> _headlessComments = new();
-
-    public RedditPostRelationalAggegator(IDataflowPublisher<RedditPost> publisher, ILogger<RedditPostRelationalAggegator> logger)
-    {
-        _publisher = publisher;
-        _logger = logger;
-    }
-
-    public ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
-    {
-        _postWithCounterByUrl.TryAdd(message.CommentsUrl, (new(message, new()), 0));
-        return default;
-    }
-
-    public ValueTask HandleAsync(RedditPostComment message, CancellationToken cancellationToken = default)
-    {
-        _headlessComments.Add(message);
-        return default;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            InsertHeadlessComments();
-            await PublishInactivePosts(stoppingToken);
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-        }
-    }
-
-
-    private async Task PublishInactivePosts(CancellationToken stoppingToken)
-    {
-        foreach (var (post, commentMissCounter) in _postWithCounterByUrl.Values)
-        {
-            if (commentMissCounter > 100)
-            {
-                await PublishPost(post, stoppingToken).ConfigureAwait(false);
-            }
-        }
-
-        async Task PublishPost(RedditPost post, CancellationToken stoppingToken)
-        {
-            if (_postWithCounterByUrl.TryRemove(post.TopLevel.CommentsUrl, out var postWithCounter))
-            {
-                _logger.LogWarning("Post {RedditTopLevelPost} has {CommentMissCounter} misses, publishing", post.TopLevel, postWithCounter.InsertCommentMissCounter);
-                await _publisher.PublishAsync(postWithCounter.Post, stoppingToken);
-            }
-        }
-    }
-
-    private void InsertHeadlessComments()
-    {
-        // drain the headless comments, and attempt to insert them into the post
-        List<RedditPostComment> failedComments = new();
-        while (_headlessComments.TryTake(out var headlessComment))
-        {
-            if (!_postWithCounterByUrl.TryGetValue(headlessComment.PostUrl, out var postWithCounter))
-            {
-                failedComments.Add(headlessComment);
-                continue;
-            }
-            if (!InsertComment(postWithCounter.Post, headlessComment))
-            {
-                IncrementInsertCommentMissCounter(headlessComment, postWithCounter);
-                failedComments.Add(headlessComment);
-            }
-            else
-            {
-                ResetInsertCommentMissCounter(headlessComment, postWithCounter);
-            }
-        }
-
-        // requeue the failed comments
-        foreach (var comment in failedComments)
-        {
-            _headlessComments.Add(comment);
-        }
-
-        void IncrementInsertCommentMissCounter(RedditPostComment headlessComment, (RedditPost Post, long InsertCommentMissCounter) postWithCounter)
-        {
-            _postWithCounterByUrl.AddOrUpdate(headlessComment.PostUrl, (postWithCounter.Post, postWithCounter.InsertCommentMissCounter + 1), (_, postWithCounter) => (postWithCounter.Post, postWithCounter.InsertCommentMissCounter + 1));
-        }
-
-        void ResetInsertCommentMissCounter(RedditPostComment headlessComment, (RedditPost Post, long InsertCommentMissCounter) postWithCounter)
-        {
-            _postWithCounterByUrl.AddOrUpdate(headlessComment.PostUrl, (postWithCounter.Post, 0), (_, postWithCounter) => (postWithCounter.Post, 0));
-        }
-    }
-
-    private bool InsertComment(RedditPost post, RedditPostComment insertComment)
-    {
-        // insertComments are linked by child.ParentCommentUrl == parent.CommentUrl
-        // insertComments without a parent are top level comments
-        if (insertComment.ParentCommentUrl is null)
-        {
-            post.Comments.Add(new(insertComment, new()));
-            return true;
-        }
-        else
-        {
-            // find the parent comment
-            var parentComment = post.Comments
-                .SelectMany(commentTree => commentTree.Children)
-                .FirstOrDefault(commentTree => commentTree.Comment.CommentUrl == insertComment.ParentCommentUrl);
-            if (parentComment is { })
-            {
-                parentComment.Children.Add(new(insertComment, new()));
-                return true;
-            }
-        }
-        return false;
-    }
-}
-
-/// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-sealed class RedditPostSqliteSink : IDataflowHandler<RedditPost>
+sealed class RedditPostSqliteSink : BackgroundService, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
 {
     private readonly RedditPostSqliteContext _context;
 
@@ -258,20 +131,30 @@ sealed class RedditPostSqliteSink : IDataflowHandler<RedditPost>
         _context = context;
     }
 
-    public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
     {
         await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.Posts.AddAsync(message, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.TopLevelPosts.AddAsync(message, cancellationToken);
+    }
+
+    public async ValueTask HandleAsync(RedditPostComment message, CancellationToken cancellationToken = default)
+    {
+        await _context.Database.EnsureCreatedAsync(cancellationToken);
+        await _context.Comments.AddAsync(message, cancellationToken);
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            await _context.SaveChangesAsync(stoppingToken);
+        }
     }
 }
 
 sealed class RedditPostSqliteContext : DbContext
 {
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseSqlite("Data Source=reddit_dotnet.db");
-    }
-
-    public DbSet<RedditPost> Posts { get; set; } = default!;
+    public DbSet<RedditTopLevelPost> TopLevelPosts { get; set; } = default!;
+    public DbSet<RedditPostComment> Comments { get; set; } = default!;
 }
