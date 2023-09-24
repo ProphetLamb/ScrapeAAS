@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B1D106A4-8404-4501-8B0F-B9ABFA141A76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScrapeAAS.Contracts", "src\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj", "{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScrapeAAS", "src\ScrapeAAS\ScrapeAAS.csproj", "{56689E21-58D5-4779-A4F9-E8807F516424}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{9005E732-7A20-426E-8B20-AB57C251E7F9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedditDotnetScraper", "examples\RedditDotnetScraper\RedditDotnetScraper.csproj", "{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScrapeAAS.AngleSharp", "src\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj", "{CF1218A7-A212-416C-A87A-BA87C0D37F8A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56689E21-58D5-4779-A4F9-E8807F516424}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56689E21-58D5-4779-A4F9-E8807F516424}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56689E21-58D5-4779-A4F9-E8807F516424}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56689E21-58D5-4779-A4F9-E8807F516424}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF1218A7-A212-416C-A87A-BA87C0D37F8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF1218A7-A212-416C-A87A-BA87C0D37F8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF1218A7-A212-416C-A87A-BA87C0D37F8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF1218A7-A212-416C-A87A-BA87C0D37F8A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B53AA17E-9D54-4FC8-8D02-9D968C5FF6A3} = {B1D106A4-8404-4501-8B0F-B9ABFA141A76}
+		{56689E21-58D5-4779-A4F9-E8807F516424} = {B1D106A4-8404-4501-8B0F-B9ABFA141A76}
+		{EB4FF86A-F500-4A48-BB05-5A5E971FCAFB} = {9005E732-7A20-426E-8B20-AB57C251E7F9}
+		{CF1218A7-A212-416C-A87A-BA87C0D37F8A} = {B1D106A4-8404-4501-8B0F-B9ABFA141A76}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ScrapeAAS\ScrapeAAS.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" />
+  </ItemGroup>
+
+</Project>
