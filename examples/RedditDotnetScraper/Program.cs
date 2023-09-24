@@ -10,7 +10,7 @@ builder.Services
     .AddScrapeAAS()
     .AddHostedService<TopLevelRedditPostSpider>()
     .AddDataFlow<RedditPostCommentsSpider>()
-    .AddHostedService<RedditPostRelationalAggegator>().AddDataFlow<RedditPostRelationalAggegator>(true);
+    .AddHostedService<RedditPostRelationalAggegator>().AddDataFlow<RedditPostRelationalAggegator>(useExistingSingleton: true);
 var app = builder.Build();
 app.Run();
 
@@ -124,6 +124,7 @@ sealed class RedditPostCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 
 /// <summary>
 /// Inverts the relational structure of the scraped data from child n->1 parent to parent 1->n children.
+/// Debounced publishes posts that have not received comments for a while.
 /// </summary>
 sealed class RedditPostRelationalAggegator : BackgroundService, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
 {
@@ -156,7 +157,7 @@ sealed class RedditPostRelationalAggegator : BackgroundService, IDataflowHandler
         {
             InsertHeadlessComments();
             await PublishInactivePosts(stoppingToken);
-            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
         }
     }
 
@@ -245,10 +246,24 @@ sealed class RedditPostRelationalAggegator : BackgroundService, IDataflowHandler
     }
 }
 
-sealed class RedditPostSqliteSink
+/// <summary>
+/// Inserts <see cref="RedditPost"/>s into a SQLite database.
+/// </summary>
+sealed class RedditPostSqliteSink : IDataflowHandler<RedditPost>
 {
+    private readonly RedditPostSqliteContext _context;
 
+    public RedditPostSqliteSink(RedditPostSqliteContext context)
+    {
+        _context = context;
+    }
 
+    public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
+    {
+        await _context.Database.EnsureCreatedAsync(cancellationToken);
+        await _context.Posts.AddAsync(message, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }
 
 sealed class RedditPostSqliteContext : DbContext
@@ -258,6 +273,5 @@ sealed class RedditPostSqliteContext : DbContext
         optionsBuilder.UseSqlite("Data Source=reddit_dotnet.db");
     }
 
-    public DbSet<RedditTopLevelPost> TopLevelPosts { get; set; } = default!;
-    public DbSet<RedditPostComment> Comments { get; set; } = default!;
+    public DbSet<RedditPost> Posts { get; set; } = default!;
 }
