@@ -1,33 +1,29 @@
-using System.Collections.Immutable;
 using ScrapeAAS;
-using ScrapeAAS.Contracts;
-using ScrapeAAS.AngleSharp;
 using RedditDotnetScraper;
+using Dawn;
+using AngleSharp.Dom;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
-    .AddHttpClientStaticPageLoader()
-    .AddPuppeteerBrowserPageLoader()
-    .AddAngleSharpPageLoader()
-    .AddHostedService<RedditSubRedditCommentBriefProvider>()
-    .AddDataFlow()
-    .AddDataFlowHandler<RedditPostBrief, RedditCommentProvider>();
+    .AddScrapeAAS()
+    .AddHostedService<TopLevelRedditPostSpider>()
+    .AddDataFlowHandler<RedditTopLevelPostBrief, RedditTopLevelPostCommentsSpider>();
 var app = builder.Build();
 app.Run();
 
 sealed record RedditUserId(string Id);
 
-sealed record RedditPost(RedditPostBrief Brief, RedditComment Comment);
-sealed record RedditPostBrief(Uri PostUrl, string Title, long Upvotes, long Comments, Uri CommentsUrl, DateTimeOffset PostedAt, RedditUserId PostedBy);
-sealed record RedditComment(Uri PostUrl, string HtmlText, DateTimeOffset PostedAt, RedditUserId PostedBy, ImmutableArray<RedditComment> Replies);
+sealed record RedditTopLevelPost(RedditTopLevelPostBrief Brief, RedditComment Comment);
+sealed record RedditTopLevelPostBrief(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUserId PostedBy);
+sealed record RedditComment(Url ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUserId PostedBy);
 
-sealed class RedditSubRedditCommentBriefProvider : BackgroundService
+sealed class TopLevelRedditPostSpider : BackgroundService
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger<RedditSubRedditCommentBriefProvider> _logger;
-    private readonly IDataflowPublisher<RedditPostBrief> _publisher;
+    private readonly ILogger<TopLevelRedditPostSpider> _logger;
+    private readonly IDataflowPublisher<RedditTopLevelPostBrief> _publisher;
 
-    public RedditSubRedditCommentBriefProvider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditSubRedditCommentBriefProvider> logger, IDataflowPublisher<RedditPostBrief> publisher)
+    public TopLevelRedditPostSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<TopLevelRedditPostSpider> logger, IDataflowPublisher<RedditTopLevelPostBrief> publisher)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
@@ -36,8 +32,8 @@ sealed class RedditSubRedditCommentBriefProvider : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Uri root = new("https://old.reddit.com");
-        Uri source = new(root, "/r/dotnet/");
+        Url root = new("https://old.reddit.com");
+        Url source = new(root, "/r/dotnet/");
         var document = await _browserPageLoader.LoadAsync(source, stoppingToken);
         var queriedContent = document
             .QuerySelectorAll("div.thing")
@@ -51,15 +47,15 @@ sealed class RedditSubRedditCommentBriefProvider : BackgroundService
                 PostedAt = div.QuerySelector("time")?.GetAttribute("datetime"),
                 PostedBy = div.QuerySelector("a.author")?.TextContent,
             })
-            .Select(queried => new RedditPostBrief(
-                new(root, queried.PostUrl),
-                queried.Title.AssertNotEmpty(),
-                long.Parse(queried.Upvotes.AssertNotEmpty()),
-                long.Parse(queried.Comments.AssertNotEmpty()),
-                new Uri(root, queried.CommentsUrl.AssertNotEmpty()),
-                DateTimeOffset.Parse(queried.PostedAt.AssertNotEmpty()),
-                new(queried.PostedBy.AssertNotEmpty())
-            ), IExceptionHandler.Handle(ex => _logger.LogInformation(ex, "Failed to parse element")));
+            .Select(queried => new RedditTopLevelPostBrief(
+                new(root, Guard.Argument(queried.PostUrl).NotEmpty()),
+                Guard.Argument(queried.Title).NotEmpty(),
+                long.Parse(queried.Upvotes.AsSpan()),
+                long.Parse(queried.Comments.AsSpan()),
+                new(queried.CommentsUrl),
+                DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
+                new(Guard.Argument(queried.PostedBy).NotEmpty())
+            ), IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditTopLevelPostBrief}", item)));
         foreach (var item in queriedContent)
         {
             await _publisher.PublishAsync(item, stoppingToken);
@@ -67,37 +63,44 @@ sealed class RedditSubRedditCommentBriefProvider : BackgroundService
     }
 }
 
-sealed class RedditCommentProvider : IDataflowHandler<RedditPostBrief>
+sealed class RedditTopLevelPostCommentsSpider : IDataflowHandler<RedditTopLevelPostBrief>
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger<RedditCommentProvider> _logger;
+    private readonly ILogger<RedditTopLevelPostCommentsSpider> _logger;
     private readonly IDataflowPublisher<RedditComment> _publisher;
 
-    public RedditCommentProvider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditCommentProvider> logger, IDataflowPublisher<RedditComment> publisher)
+    public RedditTopLevelPostCommentsSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditTopLevelPostCommentsSpider> logger, IDataflowPublisher<RedditComment> publisher)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
         _publisher = publisher;
     }
 
-    public async ValueTask HandleAsync(RedditPostBrief message, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(RedditTopLevelPostBrief message, CancellationToken cancellationToken = default)
     {
         var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken);
         var queriedContent = document
-            .QuerySelectorAll("div.commentarea > div.sitetable.nestedlisting > div.comment")
+            .QuerySelectorAll("div.commentarea > div.sitetable.nestedlisting div.comment > div.entry")
             .Select(div => new
             {
+                ParentCommentUrl = div.ParentElement?.ParentElement?.ParentElement is { } childContainer &&
+                    childContainer.ClassList.Contains("child") &&
+                    childContainer.ParentElement is { } parentComment &&
+                    parentComment.ClassList.Contains("comment")
+                        ? parentComment.QuerySelector("div.flat-list.buttons > a.bylink")?.GetAttribute("href")
+                        : message.CommentsUrl.ToString(),
+                CommentUrl = div.QuerySelector("div.flat-list.buttons > a.bylink")?.GetAttribute("href"),
                 HtmlText = div.QuerySelector("div.md")?.InnerHtml,
                 PostedAt = div.QuerySelector("time")?.GetAttribute("datetime"),
                 PostedBy = div.QuerySelector("a.author")?.TextContent,
             })
             .Select(queried => new RedditComment(
-                message.PostUrl,
-                queried.HtmlText.AssertNotEmpty(),
-                DateTimeOffset.Parse(queried.PostedAt.AssertNotEmpty()),
-                new(queried.PostedBy.AssertNotEmpty()),
-                ImmutableArray<RedditComment>.Empty
-            ), IExceptionHandler.Handle(ex => _logger.LogInformation(ex, "Failed to parse element")));
+                new(queried.ParentCommentUrl),
+                new(queried.CommentUrl),
+                Guard.Argument(queried.HtmlText).NotEmpty(),
+                DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
+                new(Guard.Argument(queried.PostedBy).NotEmpty())
+            ), IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditComment}", item)));
         foreach (var comment in queriedContent)
         {
             await _publisher.PublishAsync(comment, cancellationToken);

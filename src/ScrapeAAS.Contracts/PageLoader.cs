@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Collections.Immutable;
 
-namespace ScrapeAAS.Contracts;
+namespace ScrapeAAS;
 
 /// <summary>
 /// Loads a static page.

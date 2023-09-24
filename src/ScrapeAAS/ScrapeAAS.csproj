@@ -2,14 +2,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="MessagePipe" Version="1.7.4" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="7.0.0" />
-    <PackageReference Include="Polly" Version="7.2.4" />
-    <PackageReference Include="PuppeteerSharp" Version="11.0.6" />
+    <ProjectReference Include="..\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -18,4 +14,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+      <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+      <ItemGroup>
+          <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')-&gt;WithMetadataValue('PrivateAssets', 'All'))" />
+      </ItemGroup>
+  </Target>
 </Project>

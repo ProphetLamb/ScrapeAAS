@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using ScrapeAAS.Contracts;
 using ScrapeAAS.Extensions;
 using Microsoft.Extensions.Options;
 using PuppeteerSharp;
@@ -9,10 +8,9 @@ using System.Diagnostics;
 using ScrapeAAS.Utility;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
-using ScrapeAAS.Contracts;
 using Polly;
 
-namespace ScrapeAAS.PageLoader;
+namespace ScrapeAAS;
 
 public sealed class PuppeteerBrowserOptions : IOptions<PuppeteerBrowserOptions>
 {

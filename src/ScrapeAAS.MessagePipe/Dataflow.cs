@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using MessagePipe;
-using ScrapeAAS.Contracts;
+using ScrapeAAS;
 
 namespace ScrapeAAS;
 
@@ -37,9 +37,9 @@ internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
 
 public static class DataflowExtensions
 {
-    public static IServiceCollection AddDataFlow(this IServiceCollection services)
+    public static IServiceCollection AddDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
-        services.AddMessagePipe();
+        services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
         return services;
     }
 

@@ -1,10 +1,9 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
-using ScrapeAAS.Contracts;
 using ScrapeAAS.Extensions;
 
-namespace ScrapeAAS.PageLoader;
+namespace ScrapeAAS;
 
 /// <remarks>
 /// Implemented for internal use. No retry policy is applied.

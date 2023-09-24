@@ -1,7 +1,7 @@
 using System;
 using System.Net;
 
-namespace ScrapeAAS.Contracts;
+namespace ScrapeAAS;
 
 public interface IProxyProvider
 {

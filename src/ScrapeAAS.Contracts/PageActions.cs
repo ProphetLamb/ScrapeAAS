@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ScrapeAAS.Contracts;
+namespace ScrapeAAS;
 
 /// <summary>
 /// A action to perform on a page.

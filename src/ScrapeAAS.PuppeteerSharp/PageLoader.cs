@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,8 +5,6 @@ using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Polly;
 using PuppeteerSharp;
-using ScrapeAAS.Contracts;
-using ScrapeAAS.PageLoader;
 
 namespace ScrapeAAS;
 

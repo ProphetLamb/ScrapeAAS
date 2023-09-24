@@ -1,4 +1,4 @@
-﻿namespace ScrapeAAS.Contracts;
+﻿namespace ScrapeAAS;
 
 /// <summary>
 /// Inflates the dataflow for the type <typeparamref name="T"/> with data.

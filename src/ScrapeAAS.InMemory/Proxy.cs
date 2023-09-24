@@ -1,6 +1,5 @@
 using System.Net;
 using Microsoft.Extensions.Options;
-using ScrapeAAS.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ScrapeAAS;

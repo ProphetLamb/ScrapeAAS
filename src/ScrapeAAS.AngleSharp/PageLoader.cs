@@ -1,12 +1,10 @@
-﻿using System.Threading;
-using AngleSharp;
-using ScrapeAAS.Contracts;
+﻿using AngleSharp;
 using Microsoft.Extensions.Options;
 using AngleSharp.Dom;
 using System.Collections.Immutable;
 using Microsoft.Extensions.DependencyInjection;
-using AngleSharp.Common;
-namespace ScrapeAAS.AngleSharp;
+
+namespace ScrapeAAS;
 
 public interface IAngleSharpStaticPageLoader
 {

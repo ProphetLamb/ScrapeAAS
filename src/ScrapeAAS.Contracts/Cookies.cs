@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace ScrapeAAS.Contracts;
+namespace ScrapeAAS;
 
 /// <summary>
 /// Stores cookies.
