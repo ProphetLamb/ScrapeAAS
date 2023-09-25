@@ -67,7 +67,7 @@ public static class DataflowExtensions
     public static IServiceCollection AddDataFlow<TImplementation>(this IServiceCollection services, bool useExistingSingleton = false)
         where TImplementation : class
     {
-        return services.AddDataFlowHandler(typeof(TImplementation), useExistingSingleton);
+        return services.AddDataFlow(typeof(TImplementation), useExistingSingleton);
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public static class DataflowExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="useExistingSingleton">If true, will reuse an existing singleton instance of <paramref name="implementationType"/> if one is already registered.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IServiceCollection AddDataFlowHandler(this IServiceCollection services, Type implementationType, bool useExistingSingleton = false)
+    public static IServiceCollection AddDataFlow(this IServiceCollection services, Type implementationType, bool useExistingSingleton = false)
     {
         var interfaces = implementationType.GetInterfaces()
             .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IDataflowHandler<>))
