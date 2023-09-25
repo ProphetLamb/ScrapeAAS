@@ -6,40 +6,80 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
-    .AddScrapeAAS()
-    .AddHostedService<TopLevelRedditPostSpider>()
-    .AddDataFlow<RedditPostCommentsSpider>()
-    .AddHostedService<RedditPostSqliteSink>().AddDataFlow<RedditPostSqliteSink>(useExistingSingleton: true)
+    .AddScrapeAAS(new() { MessagePipe = options => options.InstanceLifetime = MessagePipe.InstanceLifetime.Scoped })
+    .AddHostedService<RedditSubredditCrawler>()
+    .AddDataFlow<RedditPostSpider>()
+    .AddDataFlow<RedditCommentsSpider>()
+    .AddDataFlow<RedditSqliteSink>()
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"), ServiceLifetime.Singleton, ServiceLifetime.Singleton);
 var app = builder.Build();
 app.Run();
 
-// Scraped data models
+sealed record RedditSubreddit(Url Url);
 sealed record RedditUserId(string Id);
 sealed record RedditTopLevelPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUserId PostedBy);
 sealed record RedditPostComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUserId PostedBy);
 
 /// <summary>
-/// Scrapes the top level posts from the /r/dotnet subreddit.
+/// Periodically crawls the /r/dotnet subreddit.
 /// </summary>
-sealed class TopLevelRedditPostSpider : BackgroundService
+sealed class RedditSubredditCrawler : BackgroundService
+{
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ILogger<RedditPostSpider> _logger;
+
+    public RedditSubredditCrawler(IServiceScopeFactory serviceScopeFactory, ILogger<RedditPostSpider> logger)
+    {
+        _serviceScopeFactory = serviceScopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Crawling /r/dotnet");
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<RedditSubreddit>>();
+                var context = scope.ServiceProvider.GetRequiredService<RedditPostSqliteContext>();
+                await publisher.PublishAsync(new(new("dotnet")), stoppingToken);
+                await context.SaveChangesAsync(stoppingToken);
+            }
+            _logger.LogInformation("Crawling complete");
+            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+        }
+    }
+}
+
+/// <summary>
+/// Scrapes the top level posts from the subreddit.
+/// </summary>
+sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger<TopLevelRedditPostSpider> _logger;
+    private readonly ILogger _logger;
     private readonly IDataflowPublisher<RedditTopLevelPost> _publisher;
 
-    public TopLevelRedditPostSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<TopLevelRedditPostSpider> logger, IDataflowPublisher<RedditTopLevelPost> publisher)
+    public RedditPostSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditTopLevelPost> publisher)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
         _publisher = publisher;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
+    {
+        await ParseRedditTopLevelPosts(message, cancellationToken);
+    }
+
+    private async Task ParseRedditTopLevelPosts(RedditSubreddit subreddit, CancellationToken stoppingToken)
     {
         Url root = new("https://old.reddit.com");
-        Url source = new(root, "/r/dotnet/");
+        Url source = subreddit.Url;
+        _logger.LogInformation("Parsing top level posts from {RedditSubreddit}", subreddit);
         var document = await _browserPageLoader.LoadAsync(source, stoppingToken);
+        _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.thing")
             .AsParallel()
@@ -66,19 +106,20 @@ sealed class TopLevelRedditPostSpider : BackgroundService
         {
             await _publisher.PublishAsync(item, stoppingToken);
         }
+        _logger.LogInformation("Parsing complete");
     }
 }
 
 /// <summary>
 /// Scrapes the comments from a top level post, and related them to their parent comments.
 /// </summary>
-sealed class RedditPostCommentsSpider : IDataflowHandler<RedditTopLevelPost>
+sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger<RedditPostCommentsSpider> _logger;
+    private readonly ILogger<RedditCommentsSpider> _logger;
     private readonly IDataflowPublisher<RedditPostComment> _publisher;
 
-    public RedditPostCommentsSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditPostCommentsSpider> logger, IDataflowPublisher<RedditPostComment> publisher)
+    public RedditCommentsSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditPostComment> publisher)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
@@ -87,7 +128,14 @@ sealed class RedditPostCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 
     public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
     {
+        await ParseRedditComments(message, cancellationToken);
+    }
+
+    private async Task ParseRedditComments(RedditTopLevelPost message, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Parsing comments from {RedditTopLevelPost}", message);
         var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken);
+        _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.commentarea > div.sitetable.nestedlisting div.comment > div.entry")
             .AsParallel()
@@ -116,17 +164,18 @@ sealed class RedditPostCommentsSpider : IDataflowHandler<RedditTopLevelPost>
         {
             await _publisher.PublishAsync(comment, cancellationToken);
         }
+        _logger.LogInformation("Parsing complete");
     }
 }
 
 /// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-sealed class RedditPostSqliteSink : BackgroundService, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
+sealed class RedditSqliteSink : IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
 {
     private readonly RedditPostSqliteContext _context;
 
-    public RedditPostSqliteSink(RedditPostSqliteContext context)
+    public RedditSqliteSink(RedditPostSqliteContext context)
     {
         _context = context;
     }
@@ -142,19 +191,15 @@ sealed class RedditPostSqliteSink : BackgroundService, IDataflowHandler<RedditTo
         await _context.Database.EnsureCreatedAsync(cancellationToken);
         await _context.Comments.AddAsync(message, cancellationToken);
     }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
-            await _context.SaveChangesAsync(stoppingToken);
-        }
-    }
 }
 
+/// <summary>
+/// Represents the SQLite database context for the Reddit scraper.
+/// </summary>
 sealed class RedditPostSqliteContext : DbContext
 {
+    public RedditPostSqliteContext(DbContextOptions<RedditPostSqliteContext> options) : base(options) { }
+
     public DbSet<RedditTopLevelPost> TopLevelPosts { get; set; } = default!;
     public DbSet<RedditPostComment> Comments { get; set; } = default!;
 }
