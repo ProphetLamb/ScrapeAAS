@@ -23,6 +23,6 @@ public static class ScrapeAASExtensions
             .AddHttpClientStaticPageLoader()
             .AddPuppeteerBrowserPageLoader(configuration?.PuppeteerBrowser, configuration?.PuppeteerPageHandlerFactory)
             .AddAngleSharpPageLoader(configuration?.AngleSharp)
-            .AddDataFlow(configuration?.MessagePipe);
+            .AddMessagePipeDataFlow(configuration?.MessagePipe);
     }
 }

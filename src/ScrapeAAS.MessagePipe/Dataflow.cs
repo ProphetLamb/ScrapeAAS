@@ -43,7 +43,7 @@ public sealed class DataflowOptions : IOptions<DataflowOptions>
 
 public static class DataflowExtensions
 {
-    public static IServiceCollection AddDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
+    public static IServiceCollection AddMessagePipeDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
         services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
         services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
