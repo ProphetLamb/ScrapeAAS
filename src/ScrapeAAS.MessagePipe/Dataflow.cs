@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using MessagePipe;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ScrapeAAS;
 
@@ -45,6 +46,7 @@ public static class DataflowExtensions
     public static IServiceCollection AddDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
         services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
+        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
         return services;
     }
 
@@ -113,19 +115,11 @@ public static class DataflowExtensions
 
         void ReuseExistingServiceDescriptor()
         {
-            if (lifetime == ServiceLifetime.Singleton && existingDescriptor.ImplementationInstance is { } existingInstance)
-            {
-                foreach (var interfaceType in interfaces)
-                {
-                    services.Add(new(interfaceType, _ => existingInstance, lifetime));
-                }
-                return;
-            }
-
             var existingInterface = existingDescriptor.ServiceType;
             foreach (var interfaceType in interfaces)
             {
-                services.Add(new(interfaceType, sp => sp.GetServices(existingInterface).First(x => x is not null && x.GetType() == implementationType)!, lifetime));
+                ServiceDescriptor descriptor = new(interfaceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServices(existingInterface).First(x => x is not null && x.GetType() == implementationType)!, implementationType), lifetime);
+                services.TryAddEnumerable(descriptor);
             }
         }
 
@@ -135,7 +129,8 @@ public static class DataflowExtensions
             services.AddSingleton(existingInterface, implementationType);
             foreach (var interfaceType in interfaces.Skip(1))
             {
-                services.Add(new(interfaceType, sp => sp.GetServices(existingInterface).Where(x => x is not null && x.GetType() == implementationType).Single()!, lifetime));
+                ServiceDescriptor descriptor = new(interfaceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServices(existingInterface).First(x => x is not null && x.GetType() == implementationType)!, implementationType), lifetime);
+                services.TryAddEnumerable(descriptor);
             }
         }
     }
