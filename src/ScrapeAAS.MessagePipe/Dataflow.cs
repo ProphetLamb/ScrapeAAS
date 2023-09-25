@@ -81,6 +81,7 @@ public static class DataflowExtensions
     {
         var interfaces = implementationType.GetInterfaces()
             .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IDataflowHandler<>))
+            .DistinctBy(x => x.GenericTypeArguments[0])
             .ToArray();
 
         if (interfaces.Length == 0)
@@ -90,48 +91,56 @@ public static class DataflowExtensions
 
         var options = GetMessagePipeOptionsOrThrow(services);
 
-        AddServicesForInterfacesOfType(services, implementationType, interfaces, options.InstanceLifetime.ToServiceLifetime(), useExistingSingleton);
+        var lifetime = options.InstanceLifetime.ToServiceLifetime();
+        var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime, useExistingSingleton);
+        AddMessageHandlersForDataflowHandlers(interfaces, lifetime, existingServiceType, implementationType);
         return services;
     }
 
-    private static void AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime, bool useExistingService)
+    private static void AddMessageHandlersForDataflowHandlers(Type[] interfaces, ServiceLifetime lifetime, Type serviceType, Type implementationType)
     {
-        if (useExistingService && FindServiceWithMatchingImplementation(services, lifetime, implementationType) is { } existingDescriptor)
+        foreach (var type in interfaces.Select(type => type.GenericTypeArguments[0]))
         {
-            ReuseExistingServiceDescriptor();
-            return;
+            Type handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
+            Type handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
+            ServiceDescriptor descriptor = new(handlerServiceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(serviceType, implementationType)!), handlerServiceType), lifetime);
         }
-        CreateOnceAndReuseInstance();
-        return;
+    }
 
-        static ServiceDescriptor? FindServiceWithMatchingImplementation(IServiceCollection services, ServiceLifetime lifetime, Type implementationType)
+    private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime, bool useExistingService)
+    {
+        if (useExistingService && services.FirstOrDefault(s => s.Lifetime == lifetime && s.GetImplementationType() == implementationType) is { } existingDescriptor)
         {
-            return services.Where(s => s.Lifetime == lifetime && (
-                s.ImplementationType == implementationType ||
-                s.ImplementationInstance?.GetType() == implementationType ||
-                s.ImplementationFactory?.GetType().GenericTypeArguments.LastOrDefault() == implementationType)
-            ).FirstOrDefault();
+            return ReuseExistingServiceDescriptor();
         }
+        return CreateOnceAndReuseInstance();
 
-        void ReuseExistingServiceDescriptor()
+        Type ReuseExistingServiceDescriptor()
         {
-            var existingInterface = existingDescriptor.ServiceType;
+            var existingServiceType = existingDescriptor.ServiceType;
             foreach (var interfaceType in interfaces)
             {
-                ServiceDescriptor descriptor = new(interfaceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServices(existingInterface).First(x => x is not null && x.GetType() == implementationType)!, implementationType), lifetime);
+                ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, existingServiceType, implementationType);
                 services.TryAddEnumerable(descriptor);
             }
+            return existingServiceType;
         }
 
-        void CreateOnceAndReuseInstance()
+        Type CreateOnceAndReuseInstance()
         {
-            var existingInterface = interfaces[0];
-            services.AddSingleton(existingInterface, implementationType);
+            var primaryServiceType = interfaces.First();
+            services.AddSingleton(primaryServiceType, implementationType);
             foreach (var interfaceType in interfaces.Skip(1))
             {
-                ServiceDescriptor descriptor = new(interfaceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServices(existingInterface).First(x => x is not null && x.GetType() == implementationType)!, implementationType), lifetime);
+                ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
                 services.TryAddEnumerable(descriptor);
             }
+            return primaryServiceType;
         }
+    }
+
+    private static ServiceDescriptor CreateDelegatingDescriptorToExistingService(Type serviceType, ServiceLifetime lifetime, Type existingServiceType, Type existingImplementationType)
+    {
+        return new(serviceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServiceOfType(existingServiceType, existingImplementationType)!, existingImplementationType), lifetime);
     }
 }
