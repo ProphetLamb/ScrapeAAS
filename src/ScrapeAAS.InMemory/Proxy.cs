@@ -36,3 +36,13 @@ public static class ProxyExtensions
         return services;
     }
 }
+
+public static class SingleProxyProviderExtensions
+{
+    public static IServiceCollection AddSingleProxyProvider(this IServiceCollection services, Action<SingleProxyProviderOptions> configure)
+    {
+        services.Configure(configure);
+        services.AddSingleton<IProxyProvider, SingleProxyProvider>();
+        return services;
+    }
+}
