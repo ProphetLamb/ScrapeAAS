@@ -4,13 +4,12 @@ using Dawn;
 using AngleSharp.Dom;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
-using MessagePipe;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddAutoMapper(typeof(Program))
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
-    .AddScrapeAAS(new() { MessagePipe = options => options.InstanceLifetime = InstanceLifetime.Scoped })
+    .AddScrapeAAS()
     .AddHostedService<RedditSubredditCrawler>()
     .AddDataFlow<RedditPostSpider>()
     .AddDataFlow<RedditCommentsSpider>()
