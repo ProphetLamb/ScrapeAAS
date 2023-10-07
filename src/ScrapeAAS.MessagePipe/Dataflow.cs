@@ -62,12 +62,11 @@ public static class DataflowExtensions
     /// </summary>
     /// <typeparam name="TImplementation">The type to register.</typeparam>
     /// <param name="services">The service collection.</param>
-    /// <param name="useExistingSingleton">If true, will reuse an existing singleton instance of <paramref name="implementationType"/> if one is already registered.</param>
     /// <exception cref="ArgumentException">Thrown if <typeparamref name="TImplementation"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IServiceCollection AddDataFlow<TImplementation>(this IServiceCollection services, bool useExistingSingleton = false)
+    public static IServiceCollection AddDataFlow<TImplementation>(this IServiceCollection services)
         where TImplementation : class
     {
-        return services.AddDataFlow(typeof(TImplementation), useExistingSingleton);
+        return services.AddDataFlow(typeof(TImplementation));
     }
 
     /// <summary>
@@ -75,9 +74,8 @@ public static class DataflowExtensions
     /// </summary>
     /// <param name="implementationType">The type to register.</param>
     /// <param name="services">The service collection.</param>
-    /// <param name="useExistingSingleton">If true, will reuse an existing singleton instance of <paramref name="implementationType"/> if one is already registered.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IServiceCollection AddDataFlow(this IServiceCollection services, Type implementationType, bool useExistingSingleton = false)
+    public static IServiceCollection AddDataFlow(this IServiceCollection services, Type implementationType)
     {
         var interfaces = implementationType.GetInterfaces()
             .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IDataflowHandler<>))
@@ -92,7 +90,7 @@ public static class DataflowExtensions
         var options = GetMessagePipeOptionsOrThrow(services);
 
         var lifetime = options.InstanceLifetime.ToServiceLifetime();
-        var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime, useExistingSingleton);
+        var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime);
         AddMessageHandlersForDataflowHandlers(interfaces, lifetime, existingServiceType, implementationType);
         return services;
     }
@@ -107,36 +105,16 @@ public static class DataflowExtensions
         }
     }
 
-    private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime, bool useExistingService)
+    private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime)
     {
-        if (useExistingService && services.FirstOrDefault(s => s.Lifetime == lifetime && s.GetImplementationType() == implementationType) is { } existingDescriptor)
+        var primaryServiceType = interfaces.First();
+        services.AddSingleton(primaryServiceType, implementationType);
+        foreach (var interfaceType in interfaces.Skip(1))
         {
-            return ReuseExistingServiceDescriptor();
+            ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
+            services.TryAddEnumerable(descriptor);
         }
-        return CreateOnceAndReuseInstance();
-
-        Type ReuseExistingServiceDescriptor()
-        {
-            var existingServiceType = existingDescriptor.ServiceType;
-            foreach (var interfaceType in interfaces)
-            {
-                ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, existingServiceType, implementationType);
-                services.TryAddEnumerable(descriptor);
-            }
-            return existingServiceType;
-        }
-
-        Type CreateOnceAndReuseInstance()
-        {
-            var primaryServiceType = interfaces.First();
-            services.AddSingleton(primaryServiceType, implementationType);
-            foreach (var interfaceType in interfaces.Skip(1))
-            {
-                ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
-                services.TryAddEnumerable(descriptor);
-            }
-            return primaryServiceType;
-        }
+        return primaryServiceType;
     }
 
     private static ServiceDescriptor CreateDelegatingDescriptorToExistingService(Type serviceType, ServiceLifetime lifetime, Type existingServiceType, Type existingImplementationType)
