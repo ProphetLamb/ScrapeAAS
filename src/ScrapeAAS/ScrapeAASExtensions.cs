@@ -20,6 +20,7 @@ public static class ScrapeAASExtensions
         )
     {
         return services
+            .AddInMemoryCookiesStorage()
             .AddHttpClientStaticPageLoader()
             .AddPuppeteerBrowserPageLoader(configuration?.PuppeteerBrowser, configuration?.PuppeteerPageHandlerFactory)
             .AddAngleSharpPageLoader(configuration?.AngleSharp)
