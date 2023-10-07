@@ -204,7 +204,7 @@ public interface IPuppeteerPageHandler
     ValueTask<IPage> GetPageAsync(CancellationToken cancellationToken = default);
 }
 
-internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler
+internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisposable
 {
     private IPuppeteerPageHandler? _innerHandler;
     private volatile bool _operationStarted;
@@ -275,6 +275,11 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler
         {
             _operationStarted = true;
         }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
     }
 }
 
@@ -570,6 +575,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
         try
         {
             var builder = services.GetRequiredService<IPuppeteerPageHandlerBuilder>();
+            builder.BrowserSpecification = browserSpecification;
             // Wrap the handler so we can ensure the inner handler outlives the outer handler.
             LifetimeTrackingPageHandler handler = new(builder.Build());
 

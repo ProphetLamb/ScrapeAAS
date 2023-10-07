@@ -9,9 +9,10 @@ internal sealed class MessagePipeDataflowPublisher<T> : IDataflowPublisher<T>
 {
     private readonly IAsyncPublisher<T> _publisher;
 
-    public MessagePipeDataflowPublisher(IAsyncPublisher<T> publisher)
+    public MessagePipeDataflowPublisher(IAsyncPublisher<T> publisher, IEnumerable<MessagePipeDataflowHandler<T>> handlers)
     {
         _publisher = publisher;
+        _ = handlers;
     }
 
     public ValueTask PublishAsync(T message, CancellationToken cancellationToken = default)
@@ -20,13 +21,20 @@ internal sealed class MessagePipeDataflowPublisher<T> : IDataflowPublisher<T>
     }
 }
 
-internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
+internal sealed class MessagePipeDataflowHandler<T> : IDisposable
 {
     private readonly IDataflowHandler<T> _handler;
+    private readonly IDisposable _handle;
 
-    public MessagePipeDataflowHandler(IDataflowHandler<T> handler)
+    public MessagePipeDataflowHandler(IDataflowHandler<T> handler, IAsyncSubscriber<T> subscriber)
     {
         _handler = handler;
+        _handle = subscriber.Subscribe(HandleAsync);
+    }
+
+    public void Dispose()
+    {
+        _handle.Dispose();
     }
 
     public ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
@@ -37,7 +45,7 @@ internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
 
 public sealed class DataflowOptions : IOptions<DataflowOptions>
 {
-    public ServiceLifetime InstanceLifetime { get; set; } = ServiceLifetime.Singleton;
+    public ServiceLifetime InstanceLifetime { get; set; } = ServiceLifetime.Scoped;
     DataflowOptions IOptions<DataflowOptions>.Value => this;
 }
 
@@ -47,9 +55,7 @@ public static class DataflowExtensions
     {
         services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
 
-        var options = GetMessagePipeOptionsOrThrow(services);
-        var lifetime = options.InstanceLifetime.ToServiceLifetime();
-        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), lifetime));
+        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
         return services;
     }
 
@@ -91,7 +97,7 @@ public static class DataflowExtensions
         }
 
         var options = GetMessagePipeOptionsOrThrow(services);
-        var lifetime = options.InstanceLifetime.ToServiceLifetime();
+        var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
         var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime);
         AddMessageHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, lifetime);
         return services;
@@ -101,10 +107,10 @@ public static class DataflowExtensions
     {
         foreach (var type in interfaces.Select(type => type.GenericTypeArguments[0]))
         {
-            Type handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
+            Type handlerServiceType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
             Type handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
             ServiceDescriptor descriptor = new(handlerServiceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(serviceType, implementationType)!), handlerImplementationType), lifetime);
-            services.TryAddEnumerable(descriptor);
+            services.Add(descriptor);
         }
     }
 
@@ -115,7 +121,7 @@ public static class DataflowExtensions
         foreach (var interfaceType in interfaces.Skip(1))
         {
             ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
-            services.TryAddEnumerable(descriptor);
+            services.Add(descriptor);
         }
         return primaryServiceType;
     }
