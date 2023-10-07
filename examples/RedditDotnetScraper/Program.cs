@@ -45,9 +45,7 @@ sealed class RedditSubredditCrawler : BackgroundService
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<RedditSubreddit>>();
-                var context = scope.ServiceProvider.GetRequiredService<RedditPostSqliteContext>();
                 await publisher.PublishAsync(new(new("dotnet")), stoppingToken);
-                await context.SaveChangesAsync(stoppingToken);
             }
             _logger.LogInformation("Crawling complete");
             await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
@@ -174,7 +172,7 @@ sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 /// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-sealed class RedditSqliteSink : IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
+sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
 {
     private readonly RedditPostSqliteContext _context;
     private readonly IMapper _mapper;
@@ -183,6 +181,11 @@ sealed class RedditSqliteSink : IDataflowHandler<RedditTopLevelPost>, IDataflowH
     {
         _context = context;
         _mapper = mapper;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _context.SaveChangesAsync();
     }
 
     public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
