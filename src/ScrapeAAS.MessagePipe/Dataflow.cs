@@ -29,9 +29,9 @@ internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
         _handler = handler;
     }
 
-    public async ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
     {
-        await _handler.HandleAsync(message, cancellationToken);
+        return _handler.HandleAsync(message, cancellationToken);
     }
 }
 
@@ -46,7 +46,10 @@ public static class DataflowExtensions
     public static IServiceCollection AddMessagePipeDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
         services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
-        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
+
+        var options = GetMessagePipeOptionsOrThrow(services);
+        var lifetime = options.InstanceLifetime.ToServiceLifetime();
+        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), lifetime));
         return services;
     }
 
@@ -88,27 +91,27 @@ public static class DataflowExtensions
         }
 
         var options = GetMessagePipeOptionsOrThrow(services);
-
         var lifetime = options.InstanceLifetime.ToServiceLifetime();
         var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime);
-        AddMessageHandlersForDataflowHandlers(interfaces, lifetime, existingServiceType, implementationType);
+        AddMessageHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, lifetime);
         return services;
     }
 
-    private static void AddMessageHandlersForDataflowHandlers(Type[] interfaces, ServiceLifetime lifetime, Type serviceType, Type implementationType)
+    private static void AddMessageHandlersForDataflowHandlers(IServiceCollection services, Type implementationType, Type[] interfaces, Type serviceType, ServiceLifetime lifetime)
     {
         foreach (var type in interfaces.Select(type => type.GenericTypeArguments[0]))
         {
             Type handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
             Type handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
-            ServiceDescriptor descriptor = new(handlerServiceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(serviceType, implementationType)!), handlerServiceType), lifetime);
+            ServiceDescriptor descriptor = new(handlerServiceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(serviceType, implementationType)!), handlerImplementationType), lifetime);
+            services.TryAddEnumerable(descriptor);
         }
     }
 
     private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime)
     {
         var primaryServiceType = interfaces.First();
-        services.AddSingleton(primaryServiceType, implementationType);
+        services.TryAddEnumerable(new ServiceDescriptor(primaryServiceType, implementationType, lifetime));
         foreach (var interfaceType in interfaces.Skip(1))
         {
             ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
