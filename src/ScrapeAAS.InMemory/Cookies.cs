@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ScrapeAAS;
 
@@ -15,5 +16,13 @@ internal sealed class InMemoryCookiesStorage : ICookiesStorage
     {
         _cookieContainer = cookieCollection;
         return default;
+    }
+}
+
+public static class InMemoryCookiesStorageExtensions
+{
+    public static IServiceCollection AddInMemoryCookiesStorage(this IServiceCollection services)
+    {
+        return services.AddSingleton<ICookiesStorage, InMemoryCookiesStorage>();
     }
 }
