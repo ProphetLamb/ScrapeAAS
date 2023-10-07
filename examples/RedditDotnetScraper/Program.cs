@@ -3,9 +3,11 @@ using RedditDotnetScraper;
 using Dawn;
 using AngleSharp.Dom;
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
+    .AddAutoMapper(typeof(Program))
     .AddScrapeAAS(new() { MessagePipe = options => options.InstanceLifetime = MessagePipe.InstanceLifetime.Scoped })
     .AddHostedService<RedditSubredditCrawler>()
     .AddDataFlow<RedditPostSpider>()
@@ -174,22 +176,26 @@ sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 sealed class RedditSqliteSink : IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
 {
     private readonly RedditPostSqliteContext _context;
+    private readonly IMapper _mapper;
 
-    public RedditSqliteSink(RedditPostSqliteContext context)
+    public RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
     public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
     {
+        var messageDto = _mapper.Map<RedditTopLevelPostDto>(message);
         await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.TopLevelPosts.AddAsync(message, cancellationToken);
+        await _context.TopLevelPosts.AddAsync(messageDto, cancellationToken);
     }
 
     public async ValueTask HandleAsync(RedditPostComment message, CancellationToken cancellationToken = default)
     {
+        var messageDto = _mapper.Map<RedditPostCommentDto>(message);
         await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.Comments.AddAsync(message, cancellationToken);
+        await _context.Comments.AddAsync(messageDto, cancellationToken);
     }
 }
 
@@ -200,6 +206,6 @@ sealed class RedditPostSqliteContext : DbContext
 {
     public RedditPostSqliteContext(DbContextOptions<RedditPostSqliteContext> options) : base(options) { }
 
-    public DbSet<RedditTopLevelPost> TopLevelPosts { get; set; } = default!;
-    public DbSet<RedditPostComment> Comments { get; set; } = default!;
+    public DbSet<RedditTopLevelPostDto> TopLevelPosts { get; set; } = default!;
+    public DbSet<RedditPostCommentDto> Comments { get; set; } = default!;
 }
