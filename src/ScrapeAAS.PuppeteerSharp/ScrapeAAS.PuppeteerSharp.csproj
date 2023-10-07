@@ -17,4 +17,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScrapeAAS.PuppeteerSharp.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -63,7 +63,7 @@ public interface IBrowserPageLoader
     /// <param name="url">The url to load.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, default, true), cancellationToken);
+    Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
@@ -71,7 +71,7 @@ public interface IBrowserPageLoader
     /// <param name="headless">Whether to run the browser in headless mode.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, default, headless), cancellationToken);
+    Task<HttpContent> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>

@@ -39,7 +39,7 @@ internal sealed class PuppeteerInstallationProvider : IPuppeteerInstallationProv
     private readonly PuppeteerBrowserOptions _puppeteerBrowserOptions;
     private readonly ConcurrentDictionary<SupportedBrowser, InstalledBrowser> _installedBrowsers = new();
 
-    public PuppeteerInstallationProvider(ILogger<RawPuppeteerBrowserPageLoader> logger, IOptions<PageLoaderOptions> options, IOptions<PuppeteerBrowserOptions> browserOptions)
+    public PuppeteerInstallationProvider(ILogger<PuppeteerInstallationProvider> logger, IOptions<PageLoaderOptions> options, IOptions<PuppeteerBrowserOptions> browserOptions)
     {
         _logger = logger;
         _options = options.Value;
@@ -105,7 +105,7 @@ internal sealed class PuppeteerBrowserProvider : IPuppeteerBrowserProvider, IAsy
     private readonly SemaphoreSlim _browserInitializeMutex = new(1, 1);
     private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = new();
 
-    public PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<RawPuppeteerBrowserPageLoader> logger, IProxyProvider? proxyProvider = null)
+    public PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IProxyProvider? proxyProvider = null)
     {
         _puppeteerBrowsers = puppeteerBrowsers;
         _logger = logger;
