@@ -40,9 +40,8 @@ sealed class PupeeteerBrowserPageLoaderService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var scope = _services.CreateScope();
+        await using var scope = _services.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<IAsyncMessageHandler<BrowserPageLoadParameter>>();
-        using var sub = scope.ServiceProvider.GetRequiredService<IAsyncSubscriber<BrowserPageLoadParameter>>().Subscribe(handler);
         var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<BrowserPageLoadParameter>>();
         await publisher.PublishAsync(new(new("https://www.google.com"), ImmutableArray<PageAction>.Empty, true), stoppingToken);
         Environment.Exit(0);
