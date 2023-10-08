@@ -1,22 +1,26 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using AngleSharp.Dom;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 
-[PrimaryKey(nameof(Url)), Table("Subreddits")]
+[PrimaryKey(nameof(Name)), Table("Subreddits")]
 sealed class RedditSubredditDto
 {
+    [Required]
+    public string? Name { get; set; }
     [Required]
     public string? Url { get; set; }
 }
 [PrimaryKey(nameof(Id)), Table("Users")]
-sealed class RedditUserIdDto
+sealed class RedditUserDto
 {
     [Required]
     public string? Id { get; set; }
 }
 
 [PrimaryKey(nameof(PostUrl)), Table("Posts")]
-sealed class RedditTopLevelPostDto
+class RedditPostDto
 {
     [Required]
     public string? PostUrl { get; set; }
@@ -28,10 +32,12 @@ sealed class RedditTopLevelPostDto
     public string? CommentsUrl { get; set; }
     public DateTimeOffset PostedAt { get; set; }
     [Required]
-    public RedditUserIdDto? PostedBy { get; set; }
+    public string? PostedById { get; set; }
+    [Required, ForeignKey(nameof(PostedById))]
+    public virtual RedditUserDto? PostedBy { get; set; }
 }
 [PrimaryKey(nameof(CommentUrl)), Table("Comments")]
-sealed class RedditPostCommentDto
+class RedditCommentDto
 {
     public string? PostUrl { get; set; }
     public string? ParentCommentUrl { get; set; }
@@ -39,5 +45,20 @@ sealed class RedditPostCommentDto
     public string? HtmlText { get; set; }
     public DateTimeOffset PostedAt { get; set; }
     [Required]
-    public RedditUserIdDto? PostedBy { get; set; }
+    public string? PostedById { get; set; }
+    [Required, ForeignKey(nameof(PostedById))]
+    public virtual RedditUserDto? PostedBy { get; set; }
+}
+
+sealed class UrlStringConverter : ITypeConverter<Url, string?>, ITypeConverter<string?, Url>
+{
+    public Url Convert(string? source, Url destination, ResolutionContext context)
+    {
+        return new(source ?? "");
+    }
+
+    public string Convert(Url source, string? destination, ResolutionContext context)
+    {
+        return source?.ToString() ?? "";
+    }
 }

@@ -12,6 +12,18 @@ namespace RedditDotnetScraper.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Subreddits",
+                columns: table => new
+                {
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Url = table.Column<string>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Subreddits", x => x.Name);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
                 {
@@ -86,6 +98,9 @@ namespace RedditDotnetScraper.Migrations
 
             migrationBuilder.DropTable(
                 name: "Posts");
+
+            migrationBuilder.DropTable(
+                name: "Subreddits");
 
             migrationBuilder.DropTable(
                 name: "Users");

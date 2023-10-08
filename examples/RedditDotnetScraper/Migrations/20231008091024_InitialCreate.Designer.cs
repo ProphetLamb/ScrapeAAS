@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace RedditDotnetScraper.Migrations
 {
     [DbContext(typeof(RedditPostSqliteContext))]
-    [Migration("20231007120802_InitialCreate")]
+    [Migration("20231008091024_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -19,7 +19,7 @@ namespace RedditDotnetScraper.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.11");
 
-            modelBuilder.Entity("RedditPostCommentDto", b =>
+            modelBuilder.Entity("RedditCommentDto", b =>
                 {
                     b.Property<string>("CommentUrl")
                         .HasColumnType("TEXT");
@@ -47,7 +47,7 @@ namespace RedditDotnetScraper.Migrations
                     b.ToTable("Comments");
                 });
 
-            modelBuilder.Entity("RedditTopLevelPostDto", b =>
+            modelBuilder.Entity("RedditPostDto", b =>
                 {
                     b.Property<string>("PostUrl")
                         .HasColumnType("TEXT");
@@ -80,7 +80,21 @@ namespace RedditDotnetScraper.Migrations
                     b.ToTable("Posts");
                 });
 
-            modelBuilder.Entity("RedditUserIdDto", b =>
+            modelBuilder.Entity("RedditSubredditDto", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("Subreddits");
+                });
+
+            modelBuilder.Entity("RedditUserDto", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT");
@@ -90,9 +104,9 @@ namespace RedditDotnetScraper.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("RedditPostCommentDto", b =>
+            modelBuilder.Entity("RedditCommentDto", b =>
                 {
-                    b.HasOne("RedditUserIdDto", "PostedBy")
+                    b.HasOne("RedditUserDto", "PostedBy")
                         .WithMany()
                         .HasForeignKey("PostedById")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -101,9 +115,9 @@ namespace RedditDotnetScraper.Migrations
                     b.Navigation("PostedBy");
                 });
 
-            modelBuilder.Entity("RedditTopLevelPostDto", b =>
+            modelBuilder.Entity("RedditPostDto", b =>
                 {
-                    b.HasOne("RedditUserIdDto", "PostedBy")
+                    b.HasOne("RedditUserDto", "PostedBy")
                         .WithMany()
                         .HasForeignKey("PostedById")
                         .OnDelete(DeleteBehavior.Cascade)

@@ -4,23 +4,53 @@ using Dawn;
 using AngleSharp.Dom;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
+using System.Text.RegularExpressions;
+using Polly;
+using PuppeteerSharp;
+using Polly.RateLimit;
+using Polly.Contrib.WaitAndRetry;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services
-    .AddAutoMapper(typeof(Program))
+    .AddAutoMapper(options =>
+    {
+        options.CreateMap<Url, string?>().ConvertUsing<UrlStringConverter>();
+        options.CreateMap<string?, Url>().ConvertUsing<UrlStringConverter>();
+        options.CreateMap<RedditSubreddit, RedditSubredditDto>();
+        options.CreateMap<RedditUser, RedditUserDto>();
+        options.CreateMap<RedditPost, RedditPostDto>();
+        options.CreateMap<RedditComment, RedditCommentDto>();
+    }, typeof(Program))
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
-    .AddScrapeAAS()
+    .AddScrapeAAS(new()
+    {
+        MessagePipe = options =>
+        {
+            options.RequestHandlerLifetime = MessagePipe.InstanceLifetime.Scoped;
+        },
+        PageLoader = options =>
+        {
+            var retryWithBackoff = Policy.Handle<Exception>(ex => ex is PuppeteerException or HttpRequestException or RateLimitRejectedException)
+                .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromMinutes(2), 10))
+                .WrapAsync(Policy.RateLimitAsync(20, TimeSpan.FromMinutes(1)));
+            var rateLimiter = Policy.Handle<RateLimitRejectedException>()
+                .WaitAndRetryForeverAsync(_ => TimeSpan.FromSeconds(5))
+                .WrapAsync(Policy.RateLimitAsync(1, TimeSpan.FromSeconds(4)));
+            options.RequestPolicy = retryWithBackoff.WrapAsync(rateLimiter);
+        }
+    })
     .AddHostedService<RedditSubredditCrawler>()
     .AddDataFlow<RedditPostSpider>()
     .AddDataFlow<RedditCommentsSpider>()
-    .AddDataFlow<RedditSqliteSink>();
+    .AddDataFlow<RedditSqliteSink>()
+    ;
 var app = builder.Build();
 app.Run();
 
-sealed record RedditSubreddit(Url Url);
-sealed record RedditUserId(string Id);
-sealed record RedditTopLevelPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUserId PostedBy);
-sealed record RedditPostComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUserId PostedBy);
+sealed record RedditSubreddit(string Name, Url Url);
+sealed record RedditUser(string Id);
+sealed record RedditPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUser PostedBy);
+sealed record RedditComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUser PostedBy);
 
 /// <summary>
 /// Periodically crawls the /r/dotnet subreddit.
@@ -40,15 +70,20 @@ sealed class RedditSubredditCrawler : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Crawling /r/dotnet");
-            using (var scope = _serviceScopeFactory.CreateScope())
+            await using (var scope = _serviceScopeFactory.CreateAsyncScope())
             {
                 var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<RedditSubreddit>>();
-                await publisher.PublishAsync(new(new("dotnet")), stoppingToken);
+                await CrawlAsync(publisher, stoppingToken);
             }
-            _logger.LogInformation("Crawling complete");
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromHours(3), stoppingToken);
         }
+    }
+
+    private async Task CrawlAsync(IDataflowPublisher<RedditSubreddit> publisher, CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Crawling /r/dotnet");
+        await publisher.PublishAsync(new("dotnet", new("https://old.reddit.com/r/dotnet")), stoppingToken);
+        _logger.LogInformation("Crawling complete");
     }
 }
 
@@ -59,9 +94,9 @@ sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
     private readonly ILogger _logger;
-    private readonly IDataflowPublisher<RedditTopLevelPost> _publisher;
+    private readonly IDataflowPublisher<RedditPost> _publisher;
 
-    public RedditPostSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditTopLevelPost> publisher)
+    public RedditPostSpider(ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditPost> publisher, IAngleSharpBrowserPageLoader browserPageLoader)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
@@ -75,10 +110,9 @@ sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
 
     private async Task ParseRedditTopLevelPosts(RedditSubreddit subreddit, CancellationToken stoppingToken)
     {
-        Url root = new("https://old.reddit.com");
-        Url source = subreddit.Url;
+        Url root = new("https://old.reddit.com/");
         _logger.LogInformation("Parsing top level posts from {RedditSubreddit}", subreddit);
-        var document = await _browserPageLoader.LoadAsync(source, stoppingToken);
+        var document = await _browserPageLoader.LoadAsync(subreddit.Url, stoppingToken);
         _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.thing")
@@ -93,11 +127,11 @@ sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
                 PostedAt = div.QuerySelector("time")?.GetAttribute("datetime"),
                 PostedBy = div.QuerySelector("a.author")?.TextContent,
             })
-            .Select(queried => new RedditTopLevelPost(
+            .Select(queried => new RedditPost(
                 new(root, Guard.Argument(queried.PostUrl).NotEmpty()),
                 Guard.Argument(queried.Title).NotEmpty(),
                 long.Parse(queried.Upvotes.AsSpan()),
-                long.Parse(queried.Comments.AsSpan()),
+                Regex.Match(queried.Comments ?? "", @"^\d+") is { Success: true } commentCount ? long.Parse(commentCount.Value) : 0,
                 new(queried.CommentsUrl),
                 DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
                 new(Guard.Argument(queried.PostedBy).NotEmpty())
@@ -113,25 +147,25 @@ sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
 /// <summary>
 /// Scrapes the comments from a top level post, and related them to their parent comments.
 /// </summary>
-sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
+sealed class RedditCommentsSpider : IDataflowHandler<RedditPost>
 {
     private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
     private readonly ILogger<RedditCommentsSpider> _logger;
-    private readonly IDataflowPublisher<RedditPostComment> _publisher;
+    private readonly IDataflowPublisher<RedditComment> _publisher;
 
-    public RedditCommentsSpider(IAngleSharpBrowserPageLoader browserPageLoader, ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditPostComment> publisher)
+    public RedditCommentsSpider(ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditComment> publisher, IAngleSharpBrowserPageLoader browserPageLoader)
     {
         _browserPageLoader = browserPageLoader;
         _logger = logger;
         _publisher = publisher;
     }
 
-    public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
     {
         await ParseRedditComments(message, cancellationToken);
     }
 
-    private async Task ParseRedditComments(RedditTopLevelPost message, CancellationToken cancellationToken)
+    private async Task ParseRedditComments(RedditPost message, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Parsing comments from {RedditTopLevelPost}", message);
         var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken);
@@ -145,16 +179,16 @@ sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
                     childContainer.ClassList.Contains("child") &&
                     childContainer.ParentElement is { } parentComment &&
                     parentComment.ClassList.Contains("comment")
-                        ? parentComment.QuerySelector("div.flat-list.buttons > a.bylink")?.GetAttribute("href")
+                        ? parentComment.QuerySelector("ul.flat-list.buttons a.bylink")?.GetAttribute("href")
                         : null,
-                CommentUrl = div.QuerySelector("div.flat-list.buttons > a.bylink")?.GetAttribute("href"),
+                CommentUrl = div.QuerySelector("ul.flat-list.buttons a.bylink")?.GetAttribute("href"),
                 HtmlText = div.QuerySelector("div.md")?.InnerHtml,
                 PostedAt = div.QuerySelector("time")?.GetAttribute("datetime"),
                 PostedBy = div.QuerySelector("a.author")?.TextContent,
             })
-            .Select(queried => new RedditPostComment(
+            .Select(queried => new RedditComment(
                 new(message.PostUrl),
-                queried.ParentCommentUrl is null ? new(queried.ParentCommentUrl) : null,
+                queried.ParentCommentUrl is { } parentCommentUrl ? new(parentCommentUrl) : null,
                 new(queried.CommentUrl),
                 Guard.Argument(queried.HtmlText).NotEmpty(),
                 DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
@@ -171,7 +205,7 @@ sealed class RedditCommentsSpider : IDataflowHandler<RedditTopLevelPost>
 /// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditTopLevelPost>, IDataflowHandler<RedditPostComment>
+sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
 {
     private readonly RedditPostSqliteContext _context;
     private readonly IMapper _mapper;
@@ -184,19 +218,37 @@ sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditTopLeve
 
     public async ValueTask DisposeAsync()
     {
+        await _context.Database.EnsureCreatedAsync();
         await _context.SaveChangesAsync();
     }
 
-    public async ValueTask HandleAsync(RedditTopLevelPost message, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
-        var messageDto = _mapper.Map<RedditTopLevelPostDto>(message);
+        var messageDto = _mapper.Map<RedditSubredditDto>(message);
         await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.TopLevelPosts.AddAsync(messageDto, cancellationToken);
+        await _context.Subreddits.AddAsync(messageDto, cancellationToken);
     }
 
-    public async ValueTask HandleAsync(RedditPostComment message, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
     {
-        var messageDto = _mapper.Map<RedditPostCommentDto>(message);
+        var messageDto = _mapper.Map<RedditPostDto>(message);
+        if (await _context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken) is { } existingUser)
+        {
+            messageDto.PostedById = existingUser.Id;
+            messageDto.PostedBy = existingUser;
+        }
+        await _context.Database.EnsureCreatedAsync(cancellationToken);
+        await _context.Posts.AddAsync(messageDto, cancellationToken);
+    }
+
+    public async ValueTask HandleAsync(RedditComment message, CancellationToken cancellationToken = default)
+    {
+        var messageDto = _mapper.Map<RedditCommentDto>(message);
+        if (await _context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken) is { } existingUser)
+        {
+            messageDto.PostedById = existingUser.Id;
+            messageDto.PostedBy = existingUser;
+        }
         await _context.Database.EnsureCreatedAsync(cancellationToken);
         await _context.Comments.AddAsync(messageDto, cancellationToken);
     }
@@ -209,6 +261,8 @@ sealed class RedditPostSqliteContext : DbContext
 {
     public RedditPostSqliteContext(DbContextOptions<RedditPostSqliteContext> options) : base(options) { }
 
-    public DbSet<RedditTopLevelPostDto> TopLevelPosts { get; set; } = default!;
-    public DbSet<RedditPostCommentDto> Comments { get; set; } = default!;
+    public DbSet<RedditSubredditDto> Subreddits { get; set; } = default!;
+    public DbSet<RedditUserDto> Users { get; set; } = default!;
+    public DbSet<RedditPostDto> Posts { get; set; } = default!;
+    public DbSet<RedditCommentDto> Comments { get; set; } = default!;
 }
