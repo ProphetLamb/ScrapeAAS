@@ -51,7 +51,7 @@ public interface IAngleSharpBrowserPageLoader
     /// <param name="url">The url to load.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, default, true), cancellationToken);
+    Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
@@ -59,7 +59,7 @@ public interface IAngleSharpBrowserPageLoader
     /// <param name="headless">Whether to run the browser in headless mode.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, default, headless), cancellationToken);
+    Task<IDocument> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
