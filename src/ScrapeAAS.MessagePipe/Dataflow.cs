@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using MessagePipe;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Diagnostics;
 
 namespace ScrapeAAS;
 
@@ -9,10 +9,10 @@ internal sealed class MessagePipeDataflowPublisher<T> : IDataflowPublisher<T>
 {
     private readonly IAsyncPublisher<T> _publisher;
 
-    public MessagePipeDataflowPublisher(IAsyncPublisher<T> publisher, IEnumerable<MessagePipeDataflowHandler<T>> handlers)
+    public MessagePipeDataflowPublisher(IAsyncPublisher<T> publisher, IMessagePipeDataflowSubscriber<T> subscriber)
     {
         _publisher = publisher;
-        _ = handlers;
+        _ = subscriber;
     }
 
     public ValueTask PublishAsync(T message, CancellationToken cancellationToken = default)
@@ -21,20 +21,34 @@ internal sealed class MessagePipeDataflowPublisher<T> : IDataflowPublisher<T>
     }
 }
 
-internal sealed class MessagePipeDataflowHandler<T> : IDisposable
+public interface IMessagePipeDataflowSubscriber<T> : IDisposable
 {
-    private readonly IDataflowHandler<T> _handler;
-    private readonly IDisposable _handle;
 
-    public MessagePipeDataflowHandler(IDataflowHandler<T> handler, IAsyncSubscriber<T> subscriber)
+}
+
+internal sealed class MessagePipeDataflowSubscriber<T> : IMessagePipeDataflowSubscriber<T>
+{
+    private readonly IDisposable _subscription;
+
+    public MessagePipeDataflowSubscriber(IAsyncSubscriber<T> subscriber, IEnumerable<IAsyncMessageHandler<T>> handlers)
     {
-        _handler = handler;
-        _handle = subscriber.Subscribe(HandleAsync);
+        _subscription = DisposableBag.Create(handlers.Select(handler => subscriber.Subscribe(handler)).ToArray());
     }
 
     public void Dispose()
     {
-        _handle.Dispose();
+        _subscription.Dispose();
+    }
+
+}
+
+internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
+{
+    private readonly IDataflowHandler<T> _handler;
+
+    public MessagePipeDataflowHandler(IDataflowHandler<T> handler)
+    {
+        _handler = handler;
     }
 
     public ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
@@ -45,7 +59,7 @@ internal sealed class MessagePipeDataflowHandler<T> : IDisposable
 
 public sealed class DataflowOptions : IOptions<DataflowOptions>
 {
-    public ServiceLifetime InstanceLifetime { get; set; } = ServiceLifetime.Scoped;
+    public ServiceLifetime InstanceLifetime { get; set; } = ServiceLifetime.Singleton;
     DataflowOptions IOptions<DataflowOptions>.Value => this;
 }
 
@@ -55,15 +69,12 @@ public static class DataflowExtensions
     {
         services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
 
-        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
-        return services;
-    }
+        var options = services.GetMessagePipeOptionsOrThrow();
+        var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
 
-    private static MessagePipeOptions GetMessagePipeOptionsOrThrow(IServiceCollection services)
-    {
-        var descriptor = services.FirstOrDefault(service => service.Lifetime == ServiceLifetime.Singleton && service.ImplementationInstance?.GetType() == typeof(MessagePipeOptions));
-        var options = descriptor?.ImplementationInstance as MessagePipeOptions;
-        return options ?? throw new InvalidOperationException("MessagePipeOptions not registered.");
+        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
+        services.Add(new(typeof(IMessagePipeDataflowSubscriber<>), typeof(MessagePipeDataflowSubscriber<>), lifetime));
+        return services;
     }
 
     /// <summary>
@@ -96,38 +107,44 @@ public static class DataflowExtensions
             throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>");
         }
 
-        var options = GetMessagePipeOptionsOrThrow(services);
+        var options = services.GetMessagePipeOptionsOrThrow();
         var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
         var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime);
-        AddMessageHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, lifetime);
+        AddHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, lifetime);
         return services;
     }
 
-    private static void AddMessageHandlersForDataflowHandlers(IServiceCollection services, Type implementationType, Type[] interfaces, Type serviceType, ServiceLifetime lifetime)
+    private static void AddHandlersForDataflowHandlers(IServiceCollection services, Type implementationType, Type[] interfaces, Type existingServiceType, ServiceLifetime lifetime)
     {
         foreach (var type in interfaces.Select(type => type.GenericTypeArguments[0]))
         {
-            Type handlerServiceType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
+            Type handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
             Type handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
-            ServiceDescriptor descriptor = new(handlerServiceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(serviceType, implementationType)!), handlerImplementationType), lifetime);
+            ServiceDescriptor descriptor = new(
+                handlerServiceType,
+                FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(existingServiceType, implementationType)!), handlerImplementationType),
+                lifetime);
             services.Add(descriptor);
         }
     }
 
     private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime)
     {
-        var primaryServiceType = interfaces.First();
-        services.TryAddEnumerable(new ServiceDescriptor(primaryServiceType, implementationType, lifetime));
-        foreach (var interfaceType in interfaces.Skip(1))
+        services.Add(new ServiceDescriptor(implementationType, implementationType, lifetime));
+        foreach (var interfaceType in interfaces)
         {
-            ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, primaryServiceType, implementationType);
+            ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, implementationType, implementationType);
             services.Add(descriptor);
         }
-        return primaryServiceType;
+        return implementationType;
     }
 
     private static ServiceDescriptor CreateDelegatingDescriptorToExistingService(Type serviceType, ServiceLifetime lifetime, Type existingServiceType, Type existingImplementationType)
     {
-        return new(serviceType, FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServiceOfType(existingServiceType, existingImplementationType)!, existingImplementationType), lifetime);
+        Debug.Assert(serviceType != existingServiceType);
+        return new(
+            serviceType,
+            FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServiceOfType(existingServiceType, existingImplementationType)!, existingImplementationType),
+            lifetime);
     }
 }

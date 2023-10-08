@@ -15,4 +15,11 @@ internal static class MessagePipeExtensions
             _ => throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, null)
         };
     }
+    public static MessagePipeOptions GetMessagePipeOptionsOrThrow(this IServiceCollection services)
+    {
+        var descriptor = services.FirstOrDefault(service => service.Lifetime == ServiceLifetime.Singleton && service.ImplementationInstance?.GetType() == typeof(MessagePipeOptions));
+        var options = descriptor?.ImplementationInstance as MessagePipeOptions;
+        return options ?? throw new InvalidOperationException("MessagePipeOptions not registered.");
+    }
+
 }

@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +24,10 @@ internal static class FactoryHelper
     }
 
 
-    public static object? GetServiceOfType(this IServiceProvider sp, Type existingServiceType, Type existingImplementationType)
+    public static object? GetServiceOfType(this IServiceProvider sp, Type serviceType, Type implementationType)
     {
-        return sp.GetServices(existingServiceType).FirstOrDefault(x => x is not null && x.GetType() == existingImplementationType);
+        var serviceCollectionType = typeof(IEnumerable<>).MakeGenericType(serviceType);
+        var services = (IEnumerable<object>)sp.GetRequiredService(serviceCollectionType);
+        return services.FirstOrDefault(x => x is not null && x.GetType() == implementationType);
     }
 }
