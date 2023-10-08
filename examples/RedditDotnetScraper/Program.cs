@@ -24,20 +24,7 @@ builder.Services
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
     .AddScrapeAAS(new()
     {
-        MessagePipe = options =>
-        {
-            options.RequestHandlerLifetime = MessagePipe.InstanceLifetime.Scoped;
-        },
-        PageLoader = options =>
-        {
-            var retryWithBackoff = Policy.Handle<Exception>(ex => ex is PuppeteerException or HttpRequestException or RateLimitRejectedException)
-                .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromMinutes(2), 10))
-                .WrapAsync(Policy.RateLimitAsync(20, TimeSpan.FromMinutes(1)));
-            var rateLimiter = Policy.Handle<RateLimitRejectedException>()
-                .WaitAndRetryForeverAsync(_ => TimeSpan.FromSeconds(5))
-                .WrapAsync(Policy.RateLimitAsync(1, TimeSpan.FromSeconds(4)));
-            options.RequestPolicy = retryWithBackoff.WrapAsync(rateLimiter);
-        }
+        MessagePipe = options => options.RequestHandlerLifetime = MessagePipe.InstanceLifetime.Scoped,
     })
     .AddHostedService<RedditSubredditCrawler>()
     .AddDataFlow<RedditPostSpider>()
