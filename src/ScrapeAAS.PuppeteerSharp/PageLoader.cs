@@ -53,7 +53,7 @@ public static class PuppeteerBrowserExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="puppeteerBrowserConfiguration">The puppeteer browser configuration.</param>
     /// <param name="puppeteerPageHandlerFactoryConfiguration">The page handler factory configuration.</param>
-    public static IServiceCollection AddPuppeteerBrowserPageLoader(this IServiceCollection services, Action<PuppeteerBrowserOptions>? puppeteerBrowserConfiguration = null, Action<PuppeteerPageHandlerFactoryOptions>? puppeteerPageHandlerFactoryConfiguration = null)
+    public static IServiceCollection AddPuppeteerBrowserPageLoader(this IServiceCollection services, Action<PageLoaderOptions>? pageLoaderOptionsConfiguration = null, Action<PuppeteerBrowserOptions>? puppeteerBrowserConfiguration = null, Action<PuppeteerPageHandlerFactoryOptions>? puppeteerPageHandlerFactoryConfiguration = null)
     {
         ConfigureOptions();
         // Browser infrastructure
@@ -70,6 +70,11 @@ public static class PuppeteerBrowserExtensions
 
         void ConfigureOptions()
         {
+            var pageLoaderOptions = services.AddOptions<PageLoaderOptions>();
+            if (pageLoaderOptionsConfiguration is not null)
+            {
+                pageLoaderOptions.Configure(pageLoaderOptionsConfiguration);
+            }
             var puppeteerBrowserOptions = services.AddOptions<PuppeteerBrowserOptions>();
             if (puppeteerBrowserConfiguration is not null)
             {
