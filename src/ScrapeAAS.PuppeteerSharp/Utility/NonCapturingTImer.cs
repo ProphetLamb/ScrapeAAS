@@ -1,5 +1,3 @@
-using System;
-
 namespace ScrapeAAS.Utility;
 
 // A convenience API for interacting with System.Threading.Timer in a way
@@ -15,12 +13,12 @@ internal static class NonCapturingTimer
         }
 
         // Don't capture the current ExecutionContext and its AsyncLocals onto the timer
-        bool restoreFlow = false;
+        var restoreFlow = false;
         try
         {
             if (!ExecutionContext.IsFlowSuppressed())
             {
-                ExecutionContext.SuppressFlow();
+                _ = ExecutionContext.SuppressFlow();
                 restoreFlow = true;
             }
 

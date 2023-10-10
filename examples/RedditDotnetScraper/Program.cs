@@ -12,10 +12,10 @@ builder.Services
     {
         options.CreateMap<Url, string?>().ConvertUsing<UrlStringConverter>();
         options.CreateMap<string?, Url>().ConvertUsing<UrlStringConverter>();
-        options.CreateMap<RedditSubreddit, RedditSubredditDto>();
-        options.CreateMap<RedditUser, RedditUserDto>();
-        options.CreateMap<RedditPost, RedditPostDto>();
-        options.CreateMap<RedditComment, RedditCommentDto>();
+        _ = options.CreateMap<RedditSubreddit, RedditSubredditDto>();
+        _ = options.CreateMap<RedditUser, RedditUserDto>();
+        _ = options.CreateMap<RedditPost, RedditPostDto>();
+        _ = options.CreateMap<RedditComment, RedditCommentDto>();
     }, typeof(Program))
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
     .AddScrapeAAS()
@@ -27,24 +27,21 @@ builder.Services
 var app = builder.Build();
 app.Run();
 
-sealed record RedditSubreddit(string Name, Url Url);
-sealed record RedditUser(string Id);
-sealed record RedditPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUser PostedBy);
-sealed record RedditComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUser PostedBy);
+internal sealed record RedditSubreddit(string Name, Url Url);
+
+internal sealed record RedditUser(string Id);
+
+internal sealed record RedditPost(Url PostUrl, string Title, long Upvotes, long Comments, Url CommentsUrl, DateTimeOffset PostedAt, RedditUser PostedBy);
+
+internal sealed record RedditComment(Url PostUrl, Url? ParentCommentUrl, Url CommentUrl, string HtmlText, DateTimeOffset PostedAt, RedditUser PostedBy);
 
 /// <summary>
 /// Periodically crawls the /r/dotnet subreddit.
 /// </summary>
-sealed class RedditSubredditCrawler : BackgroundService
+internal sealed class RedditSubredditCrawler(IServiceScopeFactory serviceScopeFactory, ILogger<RedditPostSpider> logger) : BackgroundService
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly ILogger<RedditPostSpider> _logger;
-
-    public RedditSubredditCrawler(IServiceScopeFactory serviceScopeFactory, ILogger<RedditPostSpider> logger)
-    {
-        _serviceScopeFactory = serviceScopeFactory;
-        _logger = logger;
-    }
+    private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
+    private readonly ILogger<RedditPostSpider> _logger = logger;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -70,18 +67,11 @@ sealed class RedditSubredditCrawler : BackgroundService
 /// <summary>
 /// Scrapes the top level posts from the subreddit.
 /// </summary>
-sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
+internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditPost> publisher, IAngleSharpBrowserPageLoader browserPageLoader) : IDataflowHandler<RedditSubreddit>
 {
-    private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger _logger;
-    private readonly IDataflowPublisher<RedditPost> _publisher;
-
-    public RedditPostSpider(ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditPost> publisher, IAngleSharpBrowserPageLoader browserPageLoader)
-    {
-        _browserPageLoader = browserPageLoader;
-        _logger = logger;
-        _publisher = publisher;
-    }
+    private readonly IAngleSharpBrowserPageLoader _browserPageLoader = browserPageLoader;
+    private readonly ILogger _logger = logger;
+    private readonly IDataflowPublisher<RedditPost> _publisher = publisher;
 
     public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
@@ -127,18 +117,11 @@ sealed class RedditPostSpider : IDataflowHandler<RedditSubreddit>
 /// <summary>
 /// Scrapes the comments from a top level post, and related them to their parent comments.
 /// </summary>
-sealed class RedditCommentsSpider : IDataflowHandler<RedditPost>
+internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditComment> publisher, IAngleSharpBrowserPageLoader browserPageLoader) : IDataflowHandler<RedditPost>
 {
-    private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
-    private readonly ILogger<RedditCommentsSpider> _logger;
-    private readonly IDataflowPublisher<RedditComment> _publisher;
-
-    public RedditCommentsSpider(ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditComment> publisher, IAngleSharpBrowserPageLoader browserPageLoader)
-    {
-        _browserPageLoader = browserPageLoader;
-        _logger = logger;
-        _publisher = publisher;
-    }
+    private readonly IAngleSharpBrowserPageLoader _browserPageLoader = browserPageLoader;
+    private readonly ILogger<RedditCommentsSpider> _logger = logger;
+    private readonly IDataflowPublisher<RedditComment> _publisher = publisher;
 
     public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
     {
@@ -185,28 +168,22 @@ sealed class RedditCommentsSpider : IDataflowHandler<RedditPost>
 /// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
+internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper) : IAsyncDisposable, IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
 {
-    private readonly RedditPostSqliteContext _context;
-    private readonly IMapper _mapper;
-
-    public RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper)
-    {
-        _context = context;
-        _mapper = mapper;
-    }
+    private readonly RedditPostSqliteContext _context = context;
+    private readonly IMapper _mapper = mapper;
 
     public async ValueTask DisposeAsync()
     {
-        await _context.Database.EnsureCreatedAsync();
-        await _context.SaveChangesAsync();
+        _ = await _context.Database.EnsureCreatedAsync();
+        _ = await _context.SaveChangesAsync();
     }
 
     public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
         var messageDto = _mapper.Map<RedditSubredditDto>(message);
-        await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.Subreddits.AddAsync(messageDto, cancellationToken);
+        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
+        _ = await _context.Subreddits.AddAsync(messageDto, cancellationToken);
     }
 
     public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
@@ -217,8 +194,8 @@ sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditSubredd
             messageDto.PostedById = existingUser.Id;
             messageDto.PostedBy = existingUser;
         }
-        await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.Posts.AddAsync(messageDto, cancellationToken);
+        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
+        _ = await _context.Posts.AddAsync(messageDto, cancellationToken);
     }
 
     public async ValueTask HandleAsync(RedditComment message, CancellationToken cancellationToken = default)
@@ -229,18 +206,16 @@ sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditSubredd
             messageDto.PostedById = existingUser.Id;
             messageDto.PostedBy = existingUser;
         }
-        await _context.Database.EnsureCreatedAsync(cancellationToken);
-        await _context.Comments.AddAsync(messageDto, cancellationToken);
+        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
+        _ = await _context.Comments.AddAsync(messageDto, cancellationToken);
     }
 }
 
 /// <summary>
 /// Represents the SQLite database context for the Reddit scraper.
 /// </summary>
-sealed class RedditPostSqliteContext : DbContext
+internal sealed class RedditPostSqliteContext(DbContextOptions<RedditPostSqliteContext> options) : DbContext(options)
 {
-    public RedditPostSqliteContext(DbContextOptions<RedditPostSqliteContext> options) : base(options) { }
-
     public DbSet<RedditSubredditDto> Subreddits { get; set; } = default!;
     public DbSet<RedditUserDto> Users { get; set; } = default!;
     public DbSet<RedditPostDto> Posts { get; set; } = default!;

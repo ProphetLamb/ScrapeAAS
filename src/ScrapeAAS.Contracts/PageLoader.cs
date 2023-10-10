@@ -1,4 +1,3 @@
-using System.Threading;
 using System.Collections.Immutable;
 
 namespace ScrapeAAS;
@@ -21,27 +20,21 @@ public interface IStaticPageLoader
 /// The parameter on how to load a browser page.
 /// </summary>
 /// <seealso cref="IBrowserPageLoader"/>
-public readonly struct BrowserPageLoadParameter
+public readonly struct BrowserPageLoadParameter(Uri url, ImmutableArray<PageAction> pageActions, bool headless)
 {
-    public BrowserPageLoadParameter(Uri url, ImmutableArray<PageAction> pageActions, bool headless)
-    {
-        Url = url;
-        PageActions = pageActions;
-        Headless = headless;
-    }
 
     /// <summary>
     /// The url to load.
     /// </summary>
-    public Uri Url { get; }
+    public Uri Url { get; } = url;
     /// <summary>
     /// The actions to perform when the page is loaded.
     /// </summary>
-    public ImmutableArray<PageAction> PageActions { get; }
+    public ImmutableArray<PageAction> PageActions { get; } = pageActions;
     /// <summary>
     /// Whether to run the browser in headless mode.
     /// </summary>
-    public bool Headless { get; }
+    public bool Headless { get; } = headless;
 }
 
 /// <summary>
@@ -63,7 +56,11 @@ public interface IBrowserPageLoader
     /// <param name="url">The url to load.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
+    Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
+    }
+
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
@@ -71,14 +68,22 @@ public interface IBrowserPageLoader
     /// <param name="headless">Whether to run the browser in headless mode.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
+    Task<HttpContent> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
+    }
+
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
     /// <param name="url">The url to load.</param>
     /// <param name="pageActions">The actions to perform when the page is loaded.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, params PageAction[] pageActions) => LoadAsync(new BrowserPageLoadParameter(url, pageActions.ToImmutableArray(), true));
+    Task<HttpContent> LoadAsync(Uri url, params PageAction[] pageActions)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, pageActions.ToImmutableArray(), true));
+    }
+
     /// <summary>
     /// Loads a page in a browser.
     /// </summary>
@@ -87,5 +92,8 @@ public interface IBrowserPageLoader
     /// <param name="headless">Whether to run the browser in headless mode.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<HttpContent> LoadAsync(Uri url, ImmutableArray<PageAction> pageActions, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, pageActions, headless), cancellationToken);
+    Task<HttpContent> LoadAsync(Uri url, ImmutableArray<PageAction> pageActions, bool headless, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, pageActions, headless), cancellationToken);
+    }
 }

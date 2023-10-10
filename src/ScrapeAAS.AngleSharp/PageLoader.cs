@@ -51,39 +51,53 @@ public interface IAngleSharpBrowserPageLoader
     /// <param name="url">The url to load.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
-    /// <summary>
-    /// Loads a page in a browser.
-    /// </summary>
-    /// <param name="url">The url to load.</param>
-    /// <param name="headless">Whether to run the browser in headless mode.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
-    /// <summary>
-    /// Loads a page in a browser.
-    /// </summary>
-    /// <param name="url">The url to load.</param>
-    /// <param name="pageActions">The actions to perform when the page is loaded.</param>
-    /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, params PageAction[] pageActions) => LoadAsync(new BrowserPageLoadParameter(url, pageActions.ToImmutableArray(), true));
-    /// <summary>
-    /// Loads a page in a browser.
-    /// </summary>
-    /// <param name="url">The url to load.</param>
-    /// <param name="pageActions">The actions to perform when the page is loaded.</param>
-    /// <param name="headless">Whether to run the browser in headless mode.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The content of the loaded page.</returns>
-    Task<IDocument> LoadAsync(Uri url, ImmutableArray<PageAction> pageActions, bool headless, CancellationToken cancellationToken = default) => LoadAsync(new BrowserPageLoadParameter(url, pageActions, headless), cancellationToken);
+    Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, true), cancellationToken);
+    }
 
+    /// <summary>
+    /// Loads a page in a browser.
+    /// </summary>
+    /// <param name="url">The url to load.</param>
+    /// <param name="headless">Whether to run the browser in headless mode.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The content of the loaded page.</returns>
+    Task<IDocument> LoadAsync(Uri url, bool headless, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, ImmutableArray<PageAction>.Empty, headless), cancellationToken);
+    }
+
+    /// <summary>
+    /// Loads a page in a browser.
+    /// </summary>
+    /// <param name="url">The url to load.</param>
+    /// <param name="pageActions">The actions to perform when the page is loaded.</param>
+    /// <returns>The content of the loaded page.</returns>
+    Task<IDocument> LoadAsync(Uri url, params PageAction[] pageActions)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, pageActions.ToImmutableArray(), true));
+    }
+
+    /// <summary>
+    /// Loads a page in a browser.
+    /// </summary>
+    /// <param name="url">The url to load.</param>
+    /// <param name="pageActions">The actions to perform when the page is loaded.</param>
+    /// <param name="headless">Whether to run the browser in headless mode.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The content of the loaded page.</returns>
+    Task<IDocument> LoadAsync(Uri url, ImmutableArray<PageAction> pageActions, bool headless, CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(new BrowserPageLoadParameter(url, pageActions, headless), cancellationToken);
+    }
 }
 
 internal sealed class AngleSharpBrowserPageLoader : IAngleSharpBrowserPageLoader
 {
     private readonly IBrowserPageLoader _pageLoader;
     private readonly AngleSharpPageLoaderOptions _options;
-    private IBrowsingContext _context;
+    private readonly IBrowsingContext _context;
 
     public AngleSharpBrowserPageLoader(IBrowserPageLoader pageLoader, IOptions<AngleSharpPageLoaderOptions> options)
     {
@@ -109,11 +123,11 @@ public static class AgnleSharpPageLoaderExtensions
         var angleSharpPageLoaderOption = services.AddOptions<AngleSharpPageLoaderOptions>();
         if (angleSharpPageLoaderConfiguration is not null)
         {
-            angleSharpPageLoaderOption.Configure(angleSharpPageLoaderConfiguration);
+            _ = angleSharpPageLoaderOption.Configure(angleSharpPageLoaderConfiguration);
         }
 
-        services.AddTransient<IAngleSharpStaticPageLoader, AngleSharpStaticPageLoader>();
-        services.AddTransient<IAngleSharpBrowserPageLoader, AngleSharpBrowserPageLoader>();
+        _ = services.AddTransient<IAngleSharpStaticPageLoader, AngleSharpStaticPageLoader>();
+        _ = services.AddTransient<IAngleSharpBrowserPageLoader, AngleSharpBrowserPageLoader>();
 
         return services;
     }

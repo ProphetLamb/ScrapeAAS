@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 
 namespace ScrapeAAS.Utility;
@@ -16,7 +15,10 @@ internal readonly struct ValueStopwatch
         _startTimestamp = startTimestamp;
     }
 
-    public static ValueStopwatch StartNew() => new ValueStopwatch(Stopwatch.GetTimestamp());
+    public static ValueStopwatch StartNew()
+    {
+        return new ValueStopwatch(Stopwatch.GetTimestamp());
+    }
 
     public TimeSpan GetElapsedTime()
     {
@@ -27,9 +29,9 @@ internal readonly struct ValueStopwatch
             throw new InvalidOperationException("An uninitialized, or 'default', ValueStopwatch cannot be used to get elapsed time.");
         }
 
-        long end = Stopwatch.GetTimestamp();
-        long timestampDelta = end - _startTimestamp;
-        long ticks = (long)(s_timestampToTicks * timestampDelta);
+        var end = Stopwatch.GetTimestamp();
+        var timestampDelta = end - _startTimestamp;
+        var ticks = (long)(s_timestampToTicks * timestampDelta);
         return new TimeSpan(ticks);
     }
 }

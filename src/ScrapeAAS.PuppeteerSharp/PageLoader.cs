@@ -16,7 +16,7 @@ public sealed class PageLoaderOptions : IOptions<PageLoaderOptions>
 
     PageLoaderOptions IOptions<PageLoaderOptions>.Value => this;
 
-    static AsyncPolicy CreateDefaultRequestPolicy()
+    private static AsyncPolicy CreateDefaultRequestPolicy()
     {
         var retryWithBackoff = Policy.Handle<Exception>(ex => ex is PuppeteerException or HttpRequestException or RateLimitRejectedException)
             .WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromMinutes(2), 10))
@@ -70,15 +70,15 @@ public static class PuppeteerBrowserExtensions
     {
         ConfigureOptions();
         // Browser infrastructure
-        services.AddSingleton<IPuppeteerInstallationProvider, PuppeteerInstallationProvider>();
-        services.AddSingleton<IPuppeteerBrowserProvider, PuppeteerBrowserProvider>();
+        _ = services.AddSingleton<IPuppeteerInstallationProvider, PuppeteerInstallationProvider>();
+        _ = services.AddSingleton<IPuppeteerBrowserProvider, PuppeteerBrowserProvider>();
         // Page handler factory
-        services.AddTransient<IPuppeteerPageHandlerBuilder, LazyInitializationPageHandlerBuilder>();
-        services.AddSingleton<IPuppeteerPageHandlerFactory, DefaultPuppeteerPageHandlerFactory>();
+        _ = services.AddTransient<IPuppeteerPageHandlerBuilder, LazyInitializationPageHandlerBuilder>();
+        _ = services.AddSingleton<IPuppeteerPageHandlerFactory, DefaultPuppeteerPageHandlerFactory>();
         // Transient page loaders
-        services.AddTransient(static sp => sp.GetRequiredService<IPuppeteerPageHandlerFactory>().CreateHandler(new()));
-        services.AddTransient<IRawBrowserPageLoader, RawPuppeteerBrowserPageLoader>();
-        services.AddTransient<IBrowserPageLoader, PollyPuppeteerBrowserPageLoader>();
+        _ = services.AddTransient(static sp => sp.GetRequiredService<IPuppeteerPageHandlerFactory>().CreateHandler(new()));
+        _ = services.AddTransient<IRawBrowserPageLoader, RawPuppeteerBrowserPageLoader>();
+        _ = services.AddTransient<IBrowserPageLoader, PollyPuppeteerBrowserPageLoader>();
         return services;
 
         void ConfigureOptions()
@@ -86,17 +86,17 @@ public static class PuppeteerBrowserExtensions
             var pageLoaderOptions = services.AddOptions<PageLoaderOptions>();
             if (pageLoaderOptionsConfiguration is not null)
             {
-                pageLoaderOptions.Configure(pageLoaderOptionsConfiguration);
+                _ = pageLoaderOptions.Configure(pageLoaderOptionsConfiguration);
             }
             var puppeteerBrowserOptions = services.AddOptions<PuppeteerBrowserOptions>();
             if (puppeteerBrowserConfiguration is not null)
             {
-                puppeteerBrowserOptions.Configure(puppeteerBrowserConfiguration);
+                _ = puppeteerBrowserOptions.Configure(puppeteerBrowserConfiguration);
             }
             var puppeteerPageHandlerFactoryOptions = services.AddOptions<PuppeteerPageHandlerFactoryOptions>();
             if (puppeteerPageHandlerFactoryConfiguration is not null)
             {
-                puppeteerPageHandlerFactoryOptions.Configure(puppeteerPageHandlerFactoryConfiguration);
+                _ = puppeteerPageHandlerFactoryOptions.Configure(puppeteerPageHandlerFactoryConfiguration);
             }
         }
     }
@@ -106,12 +106,12 @@ public static class StaticPageLoaderExtensions
 {
     public static IServiceCollection AddHttpClientStaticPageLoader(this IServiceCollection services)
     {
-        services.AddHttpClient<IRawStaticPageLoader>()
+        _ = services.AddHttpClient<IRawStaticPageLoader>()
             .ConfigureHttpClient(ConfigureHttpClient)
             .ConfigureHttpMessageHandlerBuilder(ConfigureMessageHandler);
 
-        services.AddTransient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>();
-        services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
+        _ = services.AddTransient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>();
+        _ = services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
         return services;
 
         static void ConfigureHttpClient(HttpClient client)
@@ -137,8 +137,8 @@ public static class StaticPageLoaderExtensions
 
         static void ConfigureMessageHandler(HttpMessageHandlerBuilder builder)
         {
-            IProxyProvider? proxyProvider = builder.Services.GetService<IProxyProvider>();
-            ICookiesStorage? cookiesStorage = builder.Services.GetService<ICookiesStorage>();
+            var proxyProvider = builder.Services.GetService<IProxyProvider>();
+            var cookiesStorage = builder.Services.GetService<ICookiesStorage>();
             HttpClientHandler handler = new();
             if (proxyProvider is not null)
             {

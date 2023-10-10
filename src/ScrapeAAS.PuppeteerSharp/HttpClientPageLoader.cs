@@ -10,28 +10,19 @@ namespace ScrapeAAS;
 /// </remarks>
 public interface IRawStaticPageLoader : IStaticPageLoader { }
 
-internal sealed class RawHttpClientStaticPageLoader : IRawStaticPageLoader
+internal sealed class RawHttpClientStaticPageLoader(ILogger<PollyHttpClientStaticPageLoader> logger, HttpClient httpClient) : IRawStaticPageLoader
 {
-    private readonly ILogger _logger;
-    private readonly HttpClient _httpClient;
-    private readonly PageLoaderOptions _options;
-
-    public RawHttpClientStaticPageLoader(ILogger<PollyHttpClientStaticPageLoader> logger, HttpClient httpClient, IOptions<PageLoaderOptions> options)
-    {
-        _logger = logger;
-        _httpClient = httpClient;
-        _options = options.Value;
-    }
-
+    private readonly ILogger _logger = logger;
+    private readonly HttpClient _httpClient = httpClient;
     public async Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {
-        using var _ = _logger.LogMethodDuration();
+        _ = _logger.LogMethodDuration();
 
         _logger.LogDebug("Loading page {Url}", url);
 
         HttpRequestMessage req = new(HttpMethod.Get, url);
         var rsp = await _httpClient.SendAsync(req, cancellationToken).ConfigureAwait(false);
-        rsp.EnsureSuccessStatusCode();
+        _ = rsp.EnsureSuccessStatusCode();
 
         _logger.LogDebug("Page {Url} loaded", url);
         return rsp.Content;
@@ -39,18 +30,11 @@ internal sealed class RawHttpClientStaticPageLoader : IRawStaticPageLoader
 }
 
 
-internal sealed class PollyHttpClientStaticPageLoader : IStaticPageLoader
+internal sealed class PollyHttpClientStaticPageLoader(ILogger<PollyHttpClientStaticPageLoader> logger, IOptions<PageLoaderOptions> options, IRawStaticPageLoader rawStaticPageLoader) : IStaticPageLoader
 {
-    private readonly ILogger _logger;
-    private readonly PageLoaderOptions _options;
-    private readonly IRawStaticPageLoader _rawStaticPageLoader;
-
-    public PollyHttpClientStaticPageLoader(ILogger<PollyHttpClientStaticPageLoader> logger, IOptions<PageLoaderOptions> options, IRawStaticPageLoader rawStaticPageLoader)
-    {
-        _logger = logger;
-        _options = options.Value;
-        _rawStaticPageLoader = rawStaticPageLoader;
-    }
+    private readonly ILogger _logger = logger;
+    private readonly PageLoaderOptions _options = options.Value;
+    private readonly IRawStaticPageLoader _rawStaticPageLoader = rawStaticPageLoader;
 
     public async Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {

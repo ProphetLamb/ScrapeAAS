@@ -1,5 +1,3 @@
-using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using ScrapeAAS.Utility;
@@ -19,30 +17,23 @@ internal static class LoggerExtensions
         this ILogger logger,
         [CallerMemberName] string callerName = "")
     {
+        _ = logger;
+        _ = callerName;
         // TODO: Implement
     }
 }
 
-internal class Timer : IDisposable
+internal class Timer(
+    ILogger logger,
+    [CallerMemberName] string callerName = "") : IDisposable
 {
-    private readonly ILogger _logger;
-    private readonly string callerName = "";
-    private readonly ValueStopwatch _stopwatch;
-
-    public Timer(
-        ILogger logger,
-        [CallerMemberName] string callerName = "")
-    {
-        _logger = logger;
-
-        _stopwatch = ValueStopwatch.StartNew();
-
-        this.callerName = callerName;
-    }
+    private readonly ILogger _logger = logger;
+    private readonly string _callerName = callerName;
+    private readonly ValueStopwatch _stopwatch = ValueStopwatch.StartNew();
 
     public void Dispose()
     {
-        TimeSpan elapsed = _stopwatch.GetElapsedTime();
-        _logger.LogInformation("{Method} finished in {Elapsed}", callerName, elapsed);
+        var elapsed = _stopwatch.GetElapsedTime();
+        _logger.LogInformation("{Method} finished in {Elapsed}", _callerName, elapsed);
     }
 }

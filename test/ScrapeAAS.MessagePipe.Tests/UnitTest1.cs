@@ -17,7 +17,7 @@ public class Tests
     public void TestInjectBrowserPage()
     {
         var builder = Host.CreateApplicationBuilder();
-        builder.Services
+        _ = builder.Services
             .AddInMemoryCookiesStorage()
             .AddMessagePipeDataFlow(options => options.RequestHandlerLifetime = InstanceLifetime.Scoped)
             .AddDataFlow<BrowserPageLoadHandler>()
@@ -27,16 +27,9 @@ public class Tests
     }
 }
 
-sealed class PupeeteerBrowserPageLoaderService : BackgroundService
+internal sealed class PupeeteerBrowserPageLoaderService(IServiceScopeFactory services) : BackgroundService
 {
-    private readonly ILogger<PupeeteerBrowserPageLoaderService> _logger;
-    private readonly IServiceScopeFactory _services;
-
-    public PupeeteerBrowserPageLoaderService(ILogger<PupeeteerBrowserPageLoaderService> logger, IServiceScopeFactory services)
-    {
-        _logger = logger;
-        _services = services;
-    }
+    private readonly IServiceScopeFactory _services = services;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -48,14 +41,9 @@ sealed class PupeeteerBrowserPageLoaderService : BackgroundService
     }
 }
 
-sealed class BrowserPageLoadHandler : IDataflowHandler<BrowserPageLoadParameter>
+internal sealed class BrowserPageLoadHandler(ILogger<BrowserPageLoadHandler> logger) : IDataflowHandler<BrowserPageLoadParameter>
 {
-    private readonly ILogger<BrowserPageLoadHandler> _logger;
-
-    public BrowserPageLoadHandler(ILogger<BrowserPageLoadHandler> logger)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<BrowserPageLoadHandler> _logger = logger;
 
     public async ValueTask HandleAsync(BrowserPageLoadParameter message, CancellationToken cancellationToken = default)
     {

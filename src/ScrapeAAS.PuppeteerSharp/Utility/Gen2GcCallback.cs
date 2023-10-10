@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
@@ -33,7 +32,7 @@ internal sealed class Gen2GcCallback : CriticalFinalizerObject
     public static void Register(Func<bool> callback)
     {
         // Create a unreachable object that remembers the callback function and target object.
-        new Gen2GcCallback(callback);
+        _ = new Gen2GcCallback(callback);
     }
 
     /// <summary>
@@ -46,7 +45,7 @@ internal sealed class Gen2GcCallback : CriticalFinalizerObject
     public static void Register(Func<object, bool> callback, object targetObj)
     {
         // Create a unreachable object that remembers the callback function and target object.
-        new Gen2GcCallback(callback, targetObj);
+        _ = new Gen2GcCallback(callback, targetObj);
     }
 
     ~Gen2GcCallback()
@@ -54,7 +53,7 @@ internal sealed class Gen2GcCallback : CriticalFinalizerObject
         if (_weakTargetObj.IsAllocated)
         {
             // Check to see if the target object is still alive.
-            object? targetObj = _weakTargetObj.Target;
+            var targetObj = _weakTargetObj.Target;
             if (targetObj == null)
             {
                 // The target object is dead, so this callback object is no longer needed.

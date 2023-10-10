@@ -55,14 +55,20 @@ public interface IExceptionHandler
     /// </summary>
     /// <param name="handle">The action to perform when any exception is thrown.</param>
     /// <returns>An <see cref="IExceptionHandler"/> instance that handles all exceptions.</returns>
-    static IExceptionHandler Handle(Action<Exception> handle) => Handle<Exception>(handle);
+    static IExceptionHandler Handle(Action<Exception> handle)
+    {
+        return Handle<Exception>(handle);
+    }
 
     /// <summary>
     /// Returns an blanket <see cref="IExceptionHandler"/> instance that handles all exceptions.
     /// </summary>
     /// <param name="handle">The action to perform on the action and the failed item when any exception is thrown.</param>
     /// <returns>An <see cref="IExceptionHandler"/> instance that handles all exceptions.</returns>
-    static IExceptionHandler Handle(Action<Exception, object?> handle) => Handle<Exception>(handle);
+    static IExceptionHandler Handle(Action<Exception, object?> handle)
+    {
+        return Handle<Exception>(handle);
+    }
 }
 
 internal sealed class ExceptionHandler<TException> : IExceptionHandler where TException : Exception

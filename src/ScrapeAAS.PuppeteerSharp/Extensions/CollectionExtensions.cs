@@ -1,5 +1,3 @@
-using System;
-
 namespace ScrapeAAS.Extensions;
 
 internal static class CollectionExtensions

@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
@@ -24,14 +23,40 @@ public readonly struct PageAction
         _param2Array = param2Array;
     }
 
-    public static PageAction Click(string selector) => new(PageActionType.Click, param1String: selector);
-    public static PageAction Wait(int milliseconds) => new(PageActionType.Wait, param0Int: milliseconds);
-    public static PageAction ScrollToEnd() => new(PageActionType.ScrollToEnd);
-    public static PageAction EvaluateExpression(string script) => new(PageActionType.EvaluateFunction, param1String: script);
-    public static PageAction EvaluateFunction(string pageFunction, params object[] parameters) => new(PageActionType.EvaluateFunction, param1String: pageFunction, param2Array: parameters);
-    public static PageAction WaitForSelector(string selector) => new(PageActionType.WaitForSelector, param1String: selector);
-    public static PageAction WaitForNetworkIdle() => new(PageActionType.WaitForNetworkIdle);
+    public static PageAction Click(string selector)
+    {
+        return new(PageActionType.Click, param1String: selector);
+    }
 
+    public static PageAction Wait(int milliseconds)
+    {
+        return new(PageActionType.Wait, param0Int: milliseconds);
+    }
+
+    public static PageAction ScrollToEnd()
+    {
+        return new(PageActionType.ScrollToEnd);
+    }
+
+    public static PageAction EvaluateExpression(string script)
+    {
+        return new(PageActionType.EvaluateFunction, param1String: script);
+    }
+
+    public static PageAction EvaluateFunction(string pageFunction, params object[] parameters)
+    {
+        return new(PageActionType.EvaluateFunction, param1String: pageFunction, param2Array: parameters);
+    }
+
+    public static PageAction WaitForSelector(string selector)
+    {
+        return new(PageActionType.WaitForSelector, param1String: selector);
+    }
+
+    public static PageAction WaitForNetworkIdle()
+    {
+        return new(PageActionType.WaitForNetworkIdle);
+    }
 
     public bool TryGetClick([MaybeNullWhen(false)] out string selector)
     {
@@ -118,7 +143,7 @@ public sealed class PageActionJsonConverter : JsonConverter<PageAction>
     }
     public override PageAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        PageActionJsonDto jsonObject = JsonSerializer.Deserialize<PageActionJsonDto>(ref reader, options)!;
+        var jsonObject = JsonSerializer.Deserialize<PageActionJsonDto>(ref reader, options)!;
         return jsonObject.Type switch
         {
             PageActionType.Click => PageAction.Click(jsonObject.Selector ?? throw new InvalidOperationException("Selector is null")),
@@ -134,7 +159,7 @@ public sealed class PageActionJsonConverter : JsonConverter<PageAction>
         };
     }
 
-    sealed class PageActionJsonDto
+    private sealed class PageActionJsonDto
     {
         [Required]
         public PageActionType Type { get; set; }

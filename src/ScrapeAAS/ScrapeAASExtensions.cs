@@ -1,4 +1,3 @@
-using System;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 

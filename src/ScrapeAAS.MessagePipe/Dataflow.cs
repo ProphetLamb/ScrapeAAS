@@ -26,14 +26,9 @@ public interface IMessagePipeDataflowSubscriber<T> : IDisposable
 
 }
 
-internal sealed class MessagePipeDataflowSubscriber<T> : IMessagePipeDataflowSubscriber<T>
+internal sealed class MessagePipeDataflowSubscriber<T>(IAsyncSubscriber<T> subscriber, IEnumerable<IAsyncMessageHandler<T>> handlers) : IMessagePipeDataflowSubscriber<T>
 {
-    private readonly IDisposable _subscription;
-
-    public MessagePipeDataflowSubscriber(IAsyncSubscriber<T> subscriber, IEnumerable<IAsyncMessageHandler<T>> handlers)
-    {
-        _subscription = DisposableBag.Create(handlers.Select(handler => subscriber.Subscribe(handler)).ToArray());
-    }
+    private readonly IDisposable _subscription = DisposableBag.Create(handlers.Select(handler => subscriber.Subscribe(handler)).ToArray());
 
     public void Dispose()
     {
@@ -42,14 +37,9 @@ internal sealed class MessagePipeDataflowSubscriber<T> : IMessagePipeDataflowSub
 
 }
 
-internal sealed class MessagePipeDataflowHandler<T> : IAsyncMessageHandler<T>
+internal sealed class MessagePipeDataflowHandler<T>(IDataflowHandler<T> handler) : IAsyncMessageHandler<T>
 {
-    private readonly IDataflowHandler<T> _handler;
-
-    public MessagePipeDataflowHandler(IDataflowHandler<T> handler)
-    {
-        _handler = handler;
-    }
+    private readonly IDataflowHandler<T> _handler = handler;
 
     public ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
     {
@@ -67,7 +57,8 @@ public static class DataflowExtensions
 {
     public static IServiceCollection AddMessagePipeDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
-        services.AddMessagePipe(messagePipeConfiguration ?? delegate { });
+        _ = services.AddMessagePipe(messagePipeConfiguration ?? delegate
+        { });
 
         var options = services.GetMessagePipeOptionsOrThrow();
         var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
@@ -118,8 +109,8 @@ public static class DataflowExtensions
     {
         foreach (var type in interfaces.Select(type => type.GenericTypeArguments[0]))
         {
-            Type handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
-            Type handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
+            var handlerServiceType = typeof(IAsyncMessageHandler<>).MakeGenericType(type);
+            var handlerImplementationType = typeof(MessagePipeDataflowHandler<>).MakeGenericType(type);
             ServiceDescriptor descriptor = new(
                 handlerServiceType,
                 FactoryHelper.ConvertImplementationTypeUnsafe(sp => ActivatorUtilities.CreateInstance(sp, handlerImplementationType, sp.GetServiceOfType(existingServiceType, implementationType)!), handlerImplementationType),
@@ -133,7 +124,7 @@ public static class DataflowExtensions
         services.Add(new ServiceDescriptor(implementationType, implementationType, lifetime));
         foreach (var interfaceType in interfaces)
         {
-            ServiceDescriptor descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, implementationType, implementationType);
+            var descriptor = CreateDelegatingDescriptorToExistingService(interfaceType, lifetime, implementationType, implementationType);
             services.Add(descriptor);
         }
         return implementationType;

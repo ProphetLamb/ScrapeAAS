@@ -1,8 +1,6 @@
-using System.Net.Mime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ScrapeAAS;
 
 namespace ScrapeAAS.Tests;
 
@@ -17,7 +15,7 @@ public class Tests
     public void TestInjectBrowserPage()
     {
         var builder = Host.CreateApplicationBuilder();
-        builder.Services
+        _ = builder.Services
             .AddInMemoryCookiesStorage()
             .AddPuppeteerBrowserPageLoader()
             .AddHostedService<PupeeteerBrowserPageLoaderService>();
@@ -26,16 +24,9 @@ public class Tests
     }
 }
 
-sealed class PupeeteerBrowserPageLoaderService : BackgroundService
+internal sealed class PupeeteerBrowserPageLoaderService(IServiceScopeFactory services) : BackgroundService
 {
-    private readonly ILogger<PupeeteerBrowserPageLoaderService> _logger;
-    private readonly IServiceScopeFactory _services;
-
-    public PupeeteerBrowserPageLoaderService(ILogger<PupeeteerBrowserPageLoaderService> logger, IServiceScopeFactory services)
-    {
-        _logger = logger;
-        _services = services;
-    }
+    private readonly IServiceScopeFactory _services = services;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

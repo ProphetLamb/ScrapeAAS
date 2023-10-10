@@ -31,20 +31,12 @@ public interface IPuppeteerInstallationProvider
     ValueTask<InstalledBrowser> GetBrowser(SupportedBrowser browser, CancellationToken cancellationToken = default);
 }
 
-internal sealed class PuppeteerInstallationProvider : IPuppeteerInstallationProvider
+internal sealed class PuppeteerInstallationProvider(ILogger<PuppeteerInstallationProvider> logger, IOptions<PuppeteerBrowserOptions> browserOptions) : IPuppeteerInstallationProvider
 {
-    private readonly ILogger _logger;
+    private readonly ILogger _logger = logger;
     private readonly SemaphoreSlim _browserFetcherMutex = new(1, 1);
-    private readonly PageLoaderOptions _options;
-    private readonly PuppeteerBrowserOptions _puppeteerBrowserOptions;
+    private readonly PuppeteerBrowserOptions _puppeteerBrowserOptions = browserOptions.Value;
     private readonly ConcurrentDictionary<SupportedBrowser, InstalledBrowser> _installedBrowsers = new();
-
-    public PuppeteerInstallationProvider(ILogger<PuppeteerInstallationProvider> logger, IOptions<PageLoaderOptions> options, IOptions<PuppeteerBrowserOptions> browserOptions)
-    {
-        _logger = logger;
-        _options = options.Value;
-        _puppeteerBrowserOptions = browserOptions.Value;
-    }
 
     public ValueTask<InstalledBrowser> GetBrowser(SupportedBrowser browser, CancellationToken cancellationToken = default)
     {
@@ -60,7 +52,7 @@ internal sealed class PuppeteerInstallationProvider : IPuppeteerInstallationProv
         await _browserFetcherMutex.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            using var _ = _logger.LogMethodDuration();
+            _ = _logger.LogMethodDuration();
             _logger.LogDebug("Ensuring Puppeteer browser executable is installed");
 
             BrowserFetcher browserFetcher = new(new BrowserFetcherOptions()
@@ -85,7 +77,7 @@ internal sealed class PuppeteerInstallationProvider : IPuppeteerInstallationProv
         }
         finally
         {
-            _browserFetcherMutex.Release();
+            _ = _browserFetcherMutex.Release();
         }
     }
 }
@@ -97,20 +89,13 @@ public interface IPuppeteerBrowserProvider
 
 public sealed record PuppeteerBrowserSpecificaiton(SupportedBrowser SupportedBrowser = SupportedBrowser.Chrome, bool Headless = true);
 
-internal sealed class PuppeteerBrowserProvider : IPuppeteerBrowserProvider, IAsyncDisposable
+internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IProxyProvider? proxyProvider = null) : IPuppeteerBrowserProvider, IAsyncDisposable
 {
-    private readonly IPuppeteerInstallationProvider _puppeteerBrowsers;
-    private readonly ILogger _logger;
-    private readonly IProxyProvider? _proxyProvider;
+    private readonly IPuppeteerInstallationProvider _puppeteerBrowsers = puppeteerBrowsers;
+    private readonly ILogger _logger = logger;
+    private readonly IProxyProvider? _proxyProvider = proxyProvider;
     private readonly SemaphoreSlim _browserInitializeMutex = new(1, 1);
-    private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = new();
-
-    public PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IProxyProvider? proxyProvider = null)
-    {
-        _puppeteerBrowsers = puppeteerBrowsers;
-        _logger = logger;
-        _proxyProvider = proxyProvider;
-    }
+    private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = [];
 
     public ValueTask DisposeAsync()
     {
@@ -146,9 +131,9 @@ internal sealed class PuppeteerBrowserProvider : IPuppeteerBrowserProvider, IAsy
             {
                 return browser;
             }
-            using var _ = _logger.LogMethodDuration();
+            _ = _logger.LogMethodDuration();
             cancellationToken.ThrowIfCancellationRequested();
-            LaunchOptions launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken);
+            var launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var newBrowser = await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
 
@@ -164,7 +149,7 @@ internal sealed class PuppeteerBrowserProvider : IPuppeteerBrowserProvider, IAsy
         }
         finally
         {
-            _browserInitializeMutex.Release();
+            _ = _browserInitializeMutex.Release();
         }
     }
 
@@ -213,10 +198,7 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
     [DisallowNull]
     public IPuppeteerPageHandler? InnerHandler
     {
-        get
-        {
-            return _innerHandler;
-        }
+        get => _innerHandler;
         set
         {
             ArgumentNullException.ThrowIfNull(value);
@@ -289,14 +271,9 @@ public interface IPuppeteerPageHandlerBuilder
     IPuppeteerPageHandler Build();
 }
 
-internal sealed class LazyInitializationPageHandlerBuilder : IPuppeteerPageHandlerBuilder
+internal sealed class LazyInitializationPageHandlerBuilder(IPuppeteerBrowserProvider browserProvider) : IPuppeteerPageHandlerBuilder
 {
-    private readonly IPuppeteerBrowserProvider _browserProvider;
-
-    public LazyInitializationPageHandlerBuilder(IPuppeteerBrowserProvider browserProvider)
-    {
-        _browserProvider = browserProvider;
-    }
+    private readonly IPuppeteerBrowserProvider _browserProvider = browserProvider;
 
     public PuppeteerBrowserSpecificaiton BrowserSpecification { get; set; } = new();
 
@@ -305,18 +282,12 @@ internal sealed class LazyInitializationPageHandlerBuilder : IPuppeteerPageHandl
         return new Handler(BrowserSpecification, _browserProvider);
     }
 
-    sealed class Handler : IPuppeteerPageHandler, IAsyncDisposable
+    private sealed class Handler(PuppeteerBrowserSpecificaiton specificaiton, IPuppeteerBrowserProvider browserProvider) : IPuppeteerPageHandler, IAsyncDisposable
     {
-        private readonly PuppeteerBrowserSpecificaiton _specificaiton;
-        private readonly IPuppeteerBrowserProvider _browserProvider;
+        private readonly PuppeteerBrowserSpecificaiton _specificaiton = specificaiton;
+        private readonly IPuppeteerBrowserProvider _browserProvider = browserProvider;
         private readonly SemaphoreSlim _createPageMutex = new(1, 1);
         private IPage? _page;
-
-        public Handler(PuppeteerBrowserSpecificaiton specificaiton, IPuppeteerBrowserProvider browserProvider)
-        {
-            _specificaiton = specificaiton;
-            _browserProvider = browserProvider;
-        }
 
         public PuppeteerBrowserSpecificaiton BrowserSpecificaiton => _specificaiton;
 
@@ -353,12 +324,12 @@ internal sealed class LazyInitializationPageHandlerBuilder : IPuppeteerPageHandl
                 }
                 var browser = await _browserProvider.GetBrowser(_specificaiton, cancellationToken).ConfigureAwait(false);
                 page = await browser.NewPageAsync().ConfigureAwait(false);
-                Interlocked.CompareExchange(ref _page, page, null);
+                _ = Interlocked.CompareExchange(ref _page, page, null);
                 return page;
             }
             finally
             {
-                _createPageMutex.Release();
+                _ = _createPageMutex.Release();
             }
         }
     }
@@ -367,35 +338,25 @@ internal sealed class LazyInitializationPageHandlerBuilder : IPuppeteerPageHandl
 
 // Thread-safety: We treat this class as immutable except for the timer. Creating a new object
 // for the 'expiry' pool simplifies the threading requirements significantly.
-internal sealed class ActiveHandlerTrackingEntry
+internal sealed class ActiveHandlerTrackingEntry(
+    PuppeteerBrowserSpecificaiton browserSpecificaiton,
+    LifetimeTrackingPageHandler handler,
+    IServiceScope? scope,
+    TimeSpan lifetime)
 {
-    private static readonly TimerCallback _timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
-    private readonly object _lock;
+    private static readonly TimerCallback s_timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
+    private readonly object _lock = new();
     private bool _timerInitialized;
     private System.Threading.Timer? _timer;
     private TimerCallback? _callback;
 
-    public ActiveHandlerTrackingEntry(
-        PuppeteerBrowserSpecificaiton browserSpecificaiton,
-        LifetimeTrackingPageHandler handler,
-        IServiceScope? scope,
-        TimeSpan lifetime)
-    {
-        BrowserSpecificaiton = browserSpecificaiton;
-        Handler = handler;
-        Scope = scope;
-        Lifetime = lifetime;
+    public LifetimeTrackingPageHandler Handler { get; private set; } = handler;
 
-        _lock = new();
-    }
+    public TimeSpan Lifetime { get; } = lifetime;
 
-    public LifetimeTrackingPageHandler Handler { get; private set; }
+    public PuppeteerBrowserSpecificaiton BrowserSpecificaiton { get; } = browserSpecificaiton;
 
-    public TimeSpan Lifetime { get; }
-
-    public PuppeteerBrowserSpecificaiton BrowserSpecificaiton { get; }
-
-    public IServiceScope? Scope { get; }
+    public IServiceScope? Scope { get; } = scope;
 
     public void StartExpiryTimer(TimerCallback callback)
     {
@@ -424,7 +385,7 @@ internal sealed class ActiveHandlerTrackingEntry
             }
 
             _callback = callback;
-            _timer = NonCapturingTimer.Create(_timerCallback, this, Lifetime, Timeout.InfiniteTimeSpan);
+            _timer = NonCapturingTimer.Create(s_timerCallback, this, Lifetime, Timeout.InfiniteTimeSpan);
             _timerInitialized = true;
         }
     }
@@ -448,28 +409,17 @@ internal sealed class ActiveHandlerTrackingEntry
 }
 
 // Thread-safety: This class is immutable
-internal sealed class ExpiredHandlerTrackingEntry
+internal sealed class ExpiredHandlerTrackingEntry(ActiveHandlerTrackingEntry other)
 {
-    private readonly WeakReference _livenessTracker;
-
-    // IMPORTANT: don't cache a reference to `other` or `other.Handler` here.
-    // We need to allow it to be GC'ed.
-    public ExpiredHandlerTrackingEntry(ActiveHandlerTrackingEntry other)
-    {
-        BrowserSpecificaiton = other.BrowserSpecificaiton;
-        Scope = other.Scope;
-
-        _livenessTracker = new WeakReference(other.Handler);
-        InnerHandler = other.Handler.InnerHandler!;
-    }
+    private readonly WeakReference _livenessTracker = new(other.Handler);
 
     public bool CanDispose => !_livenessTracker.IsAlive;
 
-    public IPuppeteerPageHandler InnerHandler { get; }
+    public IPuppeteerPageHandler InnerHandler { get; } = other.Handler.InnerHandler!;
 
-    public PuppeteerBrowserSpecificaiton BrowserSpecificaiton { get; }
+    public PuppeteerBrowserSpecificaiton BrowserSpecificaiton { get; } = other.BrowserSpecificaiton;
 
-    public IServiceScope? Scope { get; }
+    public IServiceScope? Scope { get; } = other.Scope;
 }
 
 public sealed class PuppeteerPageHandlerFactoryOptions : IOptions<PuppeteerPageHandlerFactoryOptions>
@@ -481,7 +431,7 @@ public sealed class PuppeteerPageHandlerFactoryOptions : IOptions<PuppeteerPageH
 
 internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 {
-    private static readonly TimerCallback _cleanupCallback = (s) => ((DefaultPuppeteerPageHandlerFactory)s!).CleanupTimer_Tick();
+    private static readonly TimerCallback s_cleanupCallback = (s) => ((DefaultPuppeteerPageHandlerFactory)s!).CleanupTimer_Tick();
     private readonly IServiceProvider _services;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptionsMonitor<PuppeteerPageHandlerFactoryOptions> _options;
@@ -493,7 +443,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     // 10 distinct named clients * expiry time >= 1s = approximate cleanup queue of 100 items
     //
     // This seems frequent enough. We also rely on GC occurring to actually trigger disposal.
-    private readonly TimeSpan DefaultCleanupInterval = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan _defaultCleanupInterval = TimeSpan.FromSeconds(10);
 
     // We use a new timer for each regular cleanup cycle, protected with a lock. Note that this scheme
     // doesn't give us anything to dispose, as the timer is started/stopped as needed.
@@ -510,7 +460,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     // for each name.
     //
     // internal for tests
-    internal readonly ConcurrentDictionary<PuppeteerBrowserSpecificaiton, Lazy<ActiveHandlerTrackingEntry>> _activeHandlers = new();
+    internal readonly ConcurrentDictionary<PuppeteerBrowserSpecificaiton, Lazy<ActiveHandlerTrackingEntry>> ActiveHandlers = new();
 
     // Collection of 'expired' but not yet disposed handlers.
     //
@@ -518,7 +468,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     // are eligible for garbage collection.
     //
     // internal for tests
-    internal readonly ConcurrentQueue<ExpiredHandlerTrackingEntry> _expiredHandlers = new();
+    internal readonly ConcurrentQueue<ExpiredHandlerTrackingEntry> ExpiredHandlers = new();
     private readonly TimerCallback _expiryCallback;
 
     public DefaultPuppeteerPageHandlerFactory(
@@ -530,13 +480,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
         _scopeFactory = scopeFactory;
         _options = options;
 
-        _entryFactory = (browserSpecification) =>
-        {
-            return new Lazy<ActiveHandlerTrackingEntry>(() =>
-            {
-                return CreateHandlerEntry(browserSpecification);
-            }, LazyThreadSafetyMode.ExecutionAndPublication);
-        };
+        _entryFactory = (browserSpecification) => new Lazy<ActiveHandlerTrackingEntry>(() => CreateHandlerEntry(browserSpecification), LazyThreadSafetyMode.ExecutionAndPublication);
 
         _expiryCallback = ExpiryTimer_Tick;
 
@@ -551,7 +495,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 
     public IPuppeteerPageHandler CreateHandler(PuppeteerBrowserSpecificaiton browserSpecification)
     {
-        ActiveHandlerTrackingEntry entry = _activeHandlers.GetOrAdd(browserSpecification, _entryFactory).Value;
+        var entry = ActiveHandlers.GetOrAdd(browserSpecification, _entryFactory).Value;
 
         StartHandlerEntryTimer(entry);
 
@@ -563,7 +507,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     {
         var options = _options.CurrentValue;
 
-        IServiceProvider services = _services;
+        var services = _services;
         var scope = (IServiceScope?)null;
 
         if (!options.SuppressServiceScope)
@@ -603,9 +547,9 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 
         // The timer callback should be the only one removing from the active collection. If we can't find
         // our entry in the collection, then this is a bug.
-        bool removed = _activeHandlers.TryRemove(active.BrowserSpecificaiton, out Lazy<ActiveHandlerTrackingEntry>? found);
+        var removed = ActiveHandlers.TryRemove(active.BrowserSpecificaiton, out var found);
         Debug.Assert(removed, "Entry not found. We should always be able to remove the entry");
-        Debug.Assert(object.ReferenceEquals(active, found!.Value), "Different entry found. The entry should not have been replaced");
+        Debug.Assert(ReferenceEquals(active, found!.Value), "Different entry found. The entry should not have been replaced");
 
         // At this point the handler is no longer 'active' and will not be handed out to any new clients.
         // However we haven't dropped our strong reference to the handler, so we can't yet determine if
@@ -614,7 +558,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
         // We use a different state object to track expired handlers. This allows any other thread that acquired
         // the 'active' entry to use it without safety problems.
         var expired = new ExpiredHandlerTrackingEntry(active);
-        _expiredHandlers.Enqueue(expired);
+        ExpiredHandlers.Enqueue(expired);
 
         Log.HandlerExpired(_logger, active.BrowserSpecificaiton, active.Lifetime);
 
@@ -632,7 +576,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     {
         lock (_cleanupTimerLock)
         {
-            _cleanupTimer ??= NonCapturingTimer.Create(_cleanupCallback, this, DefaultCleanupInterval, Timeout.InfiniteTimeSpan);
+            _cleanupTimer ??= NonCapturingTimer.Create(s_cleanupCallback, this, _defaultCleanupInterval, Timeout.InfiniteTimeSpan);
         }
     }
 
@@ -673,16 +617,16 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 
         try
         {
-            int initialCount = _expiredHandlers.Count;
+            var initialCount = ExpiredHandlers.Count;
             Log.CleanupCycleStart(_logger, initialCount);
 
             var stopwatch = ValueStopwatch.StartNew();
 
-            int disposedCount = 0;
-            for (int i = 0; i < initialCount; i++)
+            var disposedCount = 0;
+            for (var i = 0; i < initialCount; i++)
             {
                 // Since we're the only one removing from _expired, TryDequeue must always succeed.
-                _expiredHandlers.TryDequeue(out ExpiredHandlerTrackingEntry? entry);
+                _ = ExpiredHandlers.TryDequeue(out var entry);
                 Debug.Assert(entry != null, "Entry was null, we should always get an entry back from TryDequeue");
 
                 if (entry.CanDispose)
@@ -691,7 +635,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
                     {
                         if (entry.InnerHandler is IAsyncDisposable asyncDisposable)
                         {
-                            asyncDisposable.DisposeAsync();
+                            _ = asyncDisposable.DisposeAsync();
                         }
                         entry.Scope?.Dispose();
                         disposedCount++;
@@ -705,11 +649,11 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
                 {
                     // If the entry is still live, put it back in the queue so we can process it
                     // during the next cleanup cycle.
-                    _expiredHandlers.Enqueue(entry);
+                    ExpiredHandlers.Enqueue(entry);
                 }
             }
 
-            Log.CleanupCycleEnd(_logger, stopwatch.GetElapsedTime(), disposedCount, _expiredHandlers.Count);
+            Log.CleanupCycleEnd(_logger, stopwatch.GetElapsedTime(), disposedCount, ExpiredHandlers.Count);
         }
         finally
         {
@@ -717,7 +661,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
         }
 
         // We didn't totally empty the cleanup queue, try again later.
-        if (!_expiredHandlers.IsEmpty)
+        if (!ExpiredHandlers.IsEmpty)
         {
             StartCleanupTimer();
         }
@@ -727,28 +671,28 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     {
         public static class EventIds
         {
-            public static readonly EventId CleanupCycleStart = new EventId(100, "CleanupCycleStart");
-            public static readonly EventId CleanupCycleEnd = new EventId(101, "CleanupCycleEnd");
-            public static readonly EventId CleanupItemFailed = new EventId(102, "CleanupItemFailed");
-            public static readonly EventId HandlerExpired = new EventId(103, "HandlerExpired");
+            public static readonly EventId CleanupCycleStart = new(100, "CleanupCycleStart");
+            public static readonly EventId CleanupCycleEnd = new(101, "CleanupCycleEnd");
+            public static readonly EventId CleanupItemFailed = new(102, "CleanupItemFailed");
+            public static readonly EventId HandlerExpired = new(103, "HandlerExpired");
         }
 
-        private static readonly Action<ILogger, int, Exception?> _cleanupCycleStart = LoggerMessage.Define<int>(
+        private static readonly Action<ILogger, int, Exception?> s_cleanupCycleStart = LoggerMessage.Define<int>(
             LogLevel.Debug,
             EventIds.CleanupCycleStart,
             "Starting HttpMessageHandler cleanup cycle with {InitialCount} items");
 
-        private static readonly Action<ILogger, double, int, int, Exception?> _cleanupCycleEnd = LoggerMessage.Define<double, int, int>(
+        private static readonly Action<ILogger, double, int, int, Exception?> s_cleanupCycleEnd = LoggerMessage.Define<double, int, int>(
             LogLevel.Debug,
             EventIds.CleanupCycleEnd,
             "Ending HttpMessageHandler cleanup cycle after {ElapsedMilliseconds}ms - processed: {DisposedCount} items - remaining: {RemainingItems} items");
 
-        private static readonly Action<ILogger, PuppeteerBrowserSpecificaiton, Exception> _cleanupItemFailed = LoggerMessage.Define<PuppeteerBrowserSpecificaiton>(
+        private static readonly Action<ILogger, PuppeteerBrowserSpecificaiton, Exception> s_cleanupItemFailed = LoggerMessage.Define<PuppeteerBrowserSpecificaiton>(
             LogLevel.Error,
             EventIds.CleanupItemFailed,
             "HttpMessageHandler.Dispose() threw an unhandled exception for client: '{ClientName}'");
 
-        private static readonly Action<ILogger, double, PuppeteerBrowserSpecificaiton, Exception?> _handlerExpired = LoggerMessage.Define<double, PuppeteerBrowserSpecificaiton>(
+        private static readonly Action<ILogger, double, PuppeteerBrowserSpecificaiton, Exception?> s_handlerExpired = LoggerMessage.Define<double, PuppeteerBrowserSpecificaiton>(
             LogLevel.Debug,
             EventIds.HandlerExpired,
             "HttpMessageHandler expired after {HandlerLifetime}ms for client '{ClientName}'");
@@ -756,33 +700,33 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 
         public static void CleanupCycleStart(Lazy<ILogger> loggerLazy, int initialCount)
         {
-            if (TryGetLogger(loggerLazy, out ILogger? logger))
+            if (TryGetLogger(loggerLazy, out var logger))
             {
-                _cleanupCycleStart(logger, initialCount, null);
+                s_cleanupCycleStart(logger, initialCount, null);
             }
         }
 
         public static void CleanupCycleEnd(Lazy<ILogger> loggerLazy, TimeSpan duration, int disposedCount, int finalCount)
         {
-            if (TryGetLogger(loggerLazy, out ILogger? logger))
+            if (TryGetLogger(loggerLazy, out var logger))
             {
-                _cleanupCycleEnd(logger, duration.TotalMilliseconds, disposedCount, finalCount, null);
+                s_cleanupCycleEnd(logger, duration.TotalMilliseconds, disposedCount, finalCount, null);
             }
         }
 
         public static void CleanupItemFailed(Lazy<ILogger> loggerLazy, PuppeteerBrowserSpecificaiton browserSpecification, Exception exception)
         {
-            if (TryGetLogger(loggerLazy, out ILogger? logger))
+            if (TryGetLogger(loggerLazy, out var logger))
             {
-                _cleanupItemFailed(logger, browserSpecification, exception);
+                s_cleanupItemFailed(logger, browserSpecification, exception);
             }
         }
 
         public static void HandlerExpired(Lazy<ILogger> loggerLazy, PuppeteerBrowserSpecificaiton browserSpecification, TimeSpan lifetime)
         {
-            if (TryGetLogger(loggerLazy, out ILogger? logger))
+            if (TryGetLogger(loggerLazy, out var logger))
             {
-                _handlerExpired(logger, lifetime.TotalMilliseconds, browserSpecification, null);
+                s_handlerExpired(logger, lifetime.TotalMilliseconds, browserSpecification, null);
             }
         }
 
@@ -800,16 +744,10 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     }
 }
 
-internal sealed class RawPuppeteerBrowserPageLoader : IRawBrowserPageLoader
+internal sealed class RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handler, ICookiesStorage cookiesStorage) : IRawBrowserPageLoader
 {
-    private readonly IPuppeteerPageHandler _handler;
-    private readonly ICookiesStorage _cookiesStorage;
-
-    public RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handler, ICookiesStorage cookiesStorage)
-    {
-        _handler = handler;
-        _cookiesStorage = cookiesStorage;
-    }
+    private readonly IPuppeteerPageHandler _handler = handler;
+    private readonly ICookiesStorage _cookiesStorage = cookiesStorage;
 
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter pageParameter, CancellationToken cancellationToken = default)
     {
@@ -830,7 +768,7 @@ internal sealed class RawPuppeteerBrowserPageLoader : IRawBrowserPageLoader
         async Task ApplyNavigation()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await page.GoToAsync(pageParameter.Url.ToString(), new NavigationOptions() { WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded } });
+            _ = await page.GoToAsync(pageParameter.Url.ToString(), new NavigationOptions() { WaitUntil = [WaitUntilNavigation.DOMContentLoaded] });
         }
         async Task ApplyCookiesStorage()
         {
@@ -850,18 +788,11 @@ internal sealed class RawPuppeteerBrowserPageLoader : IRawBrowserPageLoader
     }
 }
 
-internal sealed class PollyPuppeteerBrowserPageLoader : IBrowserPageLoader
+internal sealed class PollyPuppeteerBrowserPageLoader(IRawBrowserPageLoader rawBrowserPageLoader, ILogger<PollyPuppeteerBrowserPageLoader> logger, IOptions<PageLoaderOptions> options) : IBrowserPageLoader
 {
-    private readonly IRawBrowserPageLoader _rawBrowserPageLoader;
-    private readonly ILogger _logger;
-    private readonly PageLoaderOptions _options;
-
-    public PollyPuppeteerBrowserPageLoader(IRawBrowserPageLoader rawBrowserPageLoader, ILogger<PollyPuppeteerBrowserPageLoader> logger, IOptions<PageLoaderOptions> options)
-    {
-        _rawBrowserPageLoader = rawBrowserPageLoader;
-        _logger = logger;
-        _options = options.Value;
-    }
+    private readonly IRawBrowserPageLoader _rawBrowserPageLoader = rawBrowserPageLoader;
+    private readonly ILogger _logger = logger;
+    private readonly PageLoaderOptions _options = options.Value;
 
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter parameter, CancellationToken cancellationToken = default)
     {

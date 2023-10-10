@@ -11,14 +11,9 @@ public sealed class SingleProxyProviderOptions : IOptions<SingleProxyProviderOpt
     SingleProxyProviderOptions IOptions<SingleProxyProviderOptions>.Value => this;
 }
 
-internal class SingleProxyProvider : IProxyProvider
+internal class SingleProxyProvider(IOptions<SingleProxyProviderOptions> options) : IProxyProvider
 {
-    private readonly SingleProxyProviderOptions _options;
-
-    public SingleProxyProvider(IOptions<SingleProxyProviderOptions> options)
-    {
-        _options = options.Value;
-    }
+    private readonly SingleProxyProviderOptions _options = options.Value;
 
     public ValueTask<WebProxy> GetProxyAsync(CancellationToken cancellationToken = default)
     {
@@ -31,8 +26,8 @@ public static class ProxyExtensions
 {
     public static IServiceCollection AddSingleProxyProvider(this IServiceCollection services, Action<SingleProxyProviderOptions> configure)
     {
-        services.Configure(configure);
-        services.AddSingleton<IProxyProvider, SingleProxyProvider>();
+        _ = services.Configure(configure);
+        _ = services.AddSingleton<IProxyProvider, SingleProxyProvider>();
         return services;
     }
 }
@@ -41,8 +36,8 @@ public static class SingleProxyProviderExtensions
 {
     public static IServiceCollection AddSingleProxyProvider(this IServiceCollection services, Action<SingleProxyProviderOptions> configure)
     {
-        services.Configure(configure);
-        services.AddSingleton<IProxyProvider, SingleProxyProvider>();
+        _ = services.Configure(configure);
+        _ = services.AddSingleton<IProxyProvider, SingleProxyProvider>();
         return services;
     }
 }

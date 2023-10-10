@@ -5,7 +5,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 
 [PrimaryKey(nameof(Name)), Table("Subreddits")]
-sealed class RedditSubredditDto
+internal sealed class RedditSubredditDto
 {
     [Required]
     public string? Name { get; set; }
@@ -13,14 +13,14 @@ sealed class RedditSubredditDto
     public string? Url { get; set; }
 }
 [PrimaryKey(nameof(Id)), Table("Users")]
-sealed class RedditUserDto
+internal sealed class RedditUserDto
 {
     [Required]
     public string? Id { get; set; }
 }
 
 [PrimaryKey(nameof(PostUrl)), Table("Posts")]
-class RedditPostDto
+internal sealed class RedditPostDto
 {
     [Required]
     public string? PostUrl { get; set; }
@@ -34,10 +34,10 @@ class RedditPostDto
     [Required]
     public string? PostedById { get; set; }
     [Required, ForeignKey(nameof(PostedById))]
-    public virtual RedditUserDto? PostedBy { get; set; }
+    public RedditUserDto? PostedBy { get; set; }
 }
 [PrimaryKey(nameof(CommentUrl)), Table("Comments")]
-class RedditCommentDto
+internal sealed class RedditCommentDto
 {
     public string? PostUrl { get; set; }
     public string? ParentCommentUrl { get; set; }
@@ -47,10 +47,10 @@ class RedditCommentDto
     [Required]
     public string? PostedById { get; set; }
     [Required, ForeignKey(nameof(PostedById))]
-    public virtual RedditUserDto? PostedBy { get; set; }
+    public RedditUserDto? PostedBy { get; set; }
 }
 
-sealed class UrlStringConverter : ITypeConverter<Url, string?>, ITypeConverter<string?, Url>
+internal sealed class UrlStringConverter : ITypeConverter<Url, string?>, ITypeConverter<string?, Url>
 {
     public Url Convert(string? source, Url destination, ResolutionContext context)
     {
