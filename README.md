@@ -129,7 +129,7 @@ sealed class RedditSqliteSink : IAsyncDisposable, IDataflowHandler<RedditSubredd
 I have tried both toolstacks, and found them wanting. So I tried to make it better by delegating as much work as reasonable to existing projects.
 
 In addition to my own goals; from evaluating both libraries I wish to keep all thier pros, and discard all their cons.
-The verbocity of this library sits
+The verbocity of this library sits comtably between WebReaper and DotnetSpider, but more towards the DotnetSpider end of things.
 
 - Integration into ASP.NET Hosting.
 - No dependencies at the core of the project. Instead package a reasonable set of addons by default.
@@ -153,5 +153,7 @@ The [Puppeteer](https://pptr.dev/) browser handling is a mixture of the [lifetim
 - Pro: Simple declarative builder API. No boilderplate needed.
 - Pro: Easy extendibility by implementing interfaces.
 - Pro: Puppeteer browser.
+- Con: Unable to control data flow.
+- Con: Unable to parse data.
 - Con: No ASP.NET or **any** DI integration possible.
 - Con: Dependencies for optional extendibilites, such as `Redis`, `MySql`, `RabbitMq`, are always included in the package.
