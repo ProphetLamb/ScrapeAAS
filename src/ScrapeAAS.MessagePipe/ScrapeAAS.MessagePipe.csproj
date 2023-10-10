@@ -2,10 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
 
     <RootNamespace>ScrapeAAS</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package">
+    <Product>ScrapeAAS.MessagePipe</Product>
+    <Description>MessagePipe dataflow for the ScrapeAAS library</Description>
+    <PackageTags>scraper;crawler;ASP.NET;AngleSharp;</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

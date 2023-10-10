@@ -2,10 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
 
     <RootNamespace>ScrapeAAS</RootNamespace>
+  </PropertyGroup>
+
+
+  <PropertyGroup Label="Package">
+    <Product>ScrapeAAS.InMemory</Product>
+    <Description>Basic in-memory implementations of cookie storage and provy providers for the ScrapeAAS library</Description>
+    <PackageTags>scraper;crawler</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

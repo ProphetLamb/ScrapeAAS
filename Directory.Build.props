@@ -1,0 +1,46 @@
+<Project>
+  <PropertyGroup>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <DotnetFramework>false</DotnetFramework>
+    <EditorConfig>true</EditorConfig>
+    <ImplicitUsings>true</ImplicitUsings>
+    <MIT>true</MIT>
+    <Nullable>true</Nullable>
+    <StyleCop>true</StyleCop>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Build">
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild Condition="'$(EditorConfig)' == 'true'">true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode Condition="'$(AnalysisMode)' == 'AllEnabledByDefault'">AllEnabledByDefault</AnalysisMode>
+    <AnalysisMode Condition="'$(AnalysisMode)' == 'AllDisabledByDefault'">AllDisabledByDefault</AnalysisMode>
+    <ImplicitUsings Condition="'$(ImplicitUsings)' == 'true' AND '$(DotnetFramework)' == 'false'">enable</ImplicitUsings>
+    <Nullable Condition="'$(Nullable)' == 'true'">enable</Nullable>
+    <WarningsAsErrors Condition="'$(Nullable)' == 'true'">Nullable</WarningsAsErrors>
+    <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == 'true'">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package">
+    <Authors>ProphetLamb</Authors>
+    <Company>ProphetLamb</Company>
+    <Copyright>Copyright © 2023 ProphetLamb. All rights Reserved</Copyright>
+    <PackageRequireLicenseAcceptance Condition="'$(License)' != 'None'">true</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression Condition="'$(MIT)' == 'true'">MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ProphetLamb/ScrapeAAS</PackageProjectUrl>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/ProphetLamb/ScrapeAAS.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>https://github.com/ProphetLamb/ScrapeAAS/releases</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup Label="Package References">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" Version="1.0.3" Condition="'$(DotnetFramework)' == 'true'" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" Version="17.7.30" />
+    <PackageReference Include="MinVer" PrivateAssets="all" Version="4.3.0" />
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" Version="1.2.0-beta.507" Condition="'$(StyleCop)' == 'true'" />
+  </ItemGroup>
+
+</Project>

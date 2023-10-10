@@ -12,14 +12,18 @@
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
   </ItemGroup>
 
+  <PropertyGroup Label="Package">
+    <Product>ScrapeAAS.PuppeteerSharp</Product>
+    <Description>PuppeteerSharp page loader for the ScrapeAAS library</Description>
+    <PackageTags>scraper;crawler;ASP.NET;PuppeteerSharp</PackageTags>
+  </PropertyGroup>
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="ScrapeAAS.PuppeteerSharp.Tests" />
+    <InternalsVisibleTo Include="ScrapeAAS.PuppeteerSharp.Tests" PublicKey="81f7d824365bc74b" />
   </ItemGroup>
 
 </Project>

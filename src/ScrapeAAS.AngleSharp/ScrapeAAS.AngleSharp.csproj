@@ -10,10 +10,14 @@
     <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.1" />
   </ItemGroup>
 
+  <PropertyGroup Label="Package">
+    <Product>ScrapeAAS.AngleSharp</Product>
+    <Description>Default AngleSharp page loader extensions for the ScrapeAAS library.</Description>
+    <PackageTags>scraper;crawler;ASP.NET;AngleSharp</PackageTags>
+  </PropertyGroup>
+
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
 
     <RootNamespace>ScrapeAAS</RootNamespace>
   </PropertyGroup>

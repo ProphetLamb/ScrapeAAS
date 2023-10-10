@@ -1,0 +1,29 @@
+<Project>
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);Comments;ImplicitUsings</DefineConstants>
+    <IsTrimmable>true</IsTrimmable>
+    <Sign>true</Sign>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup Label="Build">
+    <IsTrimmable Condition="'$(IsTrimmable)' == 'true'">true</IsTrimmable>
+    <GenerateDocumentationFile Condition="'$(Comments)' == 'true'">true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Signing" Condition="'$(Sign)' == 'true'">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>../../key.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup Label="Package References">
+    <PackageReference Include="DotNet.ReproducibleBuilds" PrivateAssets="all" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Files">
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
