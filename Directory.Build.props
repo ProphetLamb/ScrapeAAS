@@ -29,7 +29,7 @@
     <PackageRequireLicenseAcceptance Condition="'$(License)' != 'None'">true</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression Condition="'$(MIT)' == 'true'">MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/ProphetLamb/ScrapeAAS</PackageProjectUrl>
-    <PackageIcon>Icon.png</PackageIcon>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/ProphetLamb/ScrapeAAS.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
