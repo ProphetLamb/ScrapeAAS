@@ -489,6 +489,16 @@ dotnet_diagnostic.SA1600.severity = none
 # https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1633.md
 dotnet_diagnostic.SA1633.severity = none
 
+# SA1649: The file name of a C# code file does not match the first type declared in the file.
+# Justifcation: Multiple classes per file
+# https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1649.md
+dotnet_diagnostic.SA1649.severity = none
+
+# SA1649: A C# code file contains more than one unique type.
+# Justifcation: Multiple classes per file
+# https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1649.md
+dotnet_diagnostic.SA1402.severity = none
+
 #endif
 ##########################################
 # License
