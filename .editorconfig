@@ -496,8 +496,13 @@ dotnet_diagnostic.SA1649.severity = none
 
 # SA1649: A C# code file contains more than one unique type.
 # Justifcation: Multiple classes per file
-# https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1649.md
+# https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1402.md
 dotnet_diagnostic.SA1402.severity = none
+
+# SA1101: A call to an instance member of the local class or a base class is not prefixed with 'this.', within a C# code file.
+# Justifcation: Use semantic naming for locals
+# https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1101.md
+dotnet_diagnostic.SA1101.severity = none
 
 #endif
 ##########################################

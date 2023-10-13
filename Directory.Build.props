@@ -6,7 +6,7 @@
     <ImplicitUsings>true</ImplicitUsings>
     <MIT>true</MIT>
     <Nullable>true</Nullable>
-    <StyleCop>true</StyleCop>
+    <StyleCop>false</StyleCop>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
