@@ -82,7 +82,7 @@ internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDatafl
     {
         Url root = new("https://old.reddit.com/");
         _logger.LogInformation("Parsing top level posts from {RedditSubreddit}", subreddit);
-        var document = await _browserPageLoader.LoadAsync(subreddit.Url, stoppingToken);
+        var document = await _browserPageLoader.LoadAsync(subreddit.Url, stoppingToken).ConfigureAwait(false);
         _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.thing")
@@ -108,7 +108,7 @@ internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDatafl
             ), IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditTopLevelPostBrief}", item)));
         foreach (var item in queriedContent)
         {
-            await _publisher.PublishAsync(item, stoppingToken);
+            await _publisher.PublishAsync(item, stoppingToken).ConfigureAwait(false);
         }
         _logger.LogInformation("Parsing complete");
     }
@@ -131,7 +131,7 @@ internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger,
     private async Task ParseRedditComments(RedditPost message, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Parsing comments from {RedditTopLevelPost}", message);
-        var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken);
+        var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.commentarea > div.sitetable.nestedlisting div.comment > div.entry")
@@ -156,10 +156,11 @@ internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger,
                 Guard.Argument(queried.HtmlText).NotEmpty(),
                 DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
                 new(Guard.Argument(queried.PostedBy).NotEmpty())
-            ), IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditComment}", item)));
+            ),
+            IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditComment}", item)));
         foreach (var comment in queriedContent)
         {
-            await _publisher.PublishAsync(comment, cancellationToken);
+            await _publisher.PublishAsync(comment, cancellationToken).ConfigureAwait(false);
         }
         _logger.LogInformation("Parsing complete");
     }
