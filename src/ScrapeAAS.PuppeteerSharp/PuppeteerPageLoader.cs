@@ -172,7 +172,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
             yield return "--disable-dev-shm-usage";
             if (proxy is { Address: not null })
             {
-                yield return $"--proxy-server={proxy.Address.Host}:{proxy.Address.Port}";
+                yield return $"--proxy-server={proxy.Address}";
             }
         }
     }
