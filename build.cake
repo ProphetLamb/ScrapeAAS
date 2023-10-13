@@ -54,7 +54,7 @@ Task("Test")
                         $"trx;LogFileName={project.GetFilenameWithoutExtension()}.trx",
                         $"html;LogFileName={project.GetFilenameWithoutExtension()}.html",
                     },
-                    NoBuild = true,
+                    // NoBuild = true, // Workaround for inconsistency between windows and linux
                     NoRestore = true,
                     ResultsDirectory = artefactsDirectory,
                 });
@@ -74,7 +74,7 @@ Task("Pack")
                 {
                     ContinuousIntegrationBuild = !BuildSystem.IsLocalBuild,
                 },
-                NoBuild = true,
+                // NoBuild = true, // Workaround for inconsistency between windows and linux
                 NoRestore = true,
                 OutputDirectory = artefactsDirectory,
             });
