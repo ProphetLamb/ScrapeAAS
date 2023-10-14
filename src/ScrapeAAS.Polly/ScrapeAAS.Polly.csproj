@@ -13,7 +13,7 @@
 
   <PropertyGroup Label="Package">
     <Product>ScrapeAAS.Polly</Product>
-    <Description>Polly page loader retry options for the ScrapeAAS library</Description>
+    <Description>Polly page loader retry options for the ScrapeAAS library.</Description>
     <PackageTags>scraper;crawler;ASP.NET;PuppeteerSharp</PackageTags>
   </PropertyGroup>
 

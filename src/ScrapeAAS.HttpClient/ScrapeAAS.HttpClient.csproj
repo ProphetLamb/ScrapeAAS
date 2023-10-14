@@ -14,7 +14,7 @@
 
   <PropertyGroup Label="Package">
     <Product>ScrapeAAS.HttpClient</Product>
-    <Description>HttpClient static page loader for the ScrapeAAS library</Description>
+    <Description>HttpClient static page loader for the ScrapeAAS library.</Description>
     <PackageTags>scraper;crawler;ASP.NET;HttpClient</PackageTags>
   </PropertyGroup>
 

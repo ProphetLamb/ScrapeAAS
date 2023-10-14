@@ -10,7 +10,7 @@
   <PropertyGroup Label="Package">
     <Product>ScrapeAAS.WebShare</Product>
     <Description>WebShare proxy provider integration.</Description>
-    <PackageTags>scraper;crawler</PackageTags>
+    <PackageTags>scraper;crawler;proxy</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
