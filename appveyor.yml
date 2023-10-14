@@ -20,7 +20,7 @@ environment:
   KEY_SNK_SECRET:
     secure: WEAU/04pRkt9ERrpi/EgCeabYiu7Rgtx23YTsvrmnMglrJSpglrH6ZJCkNUfHMsC78FY21YYy9B1ZWjxaj1/Zj6bXojjBf/z0oRL8ko1GDg=
   KEY_SNK_SALT:
-    secure: a9Smx8udBiWN/3Fu8nM9F8TLiqr6VkQLfVTJZ/j6GP0uZIptd8U=
+    secure: vYoZ9enEWtdexGGvwcy5e7KaTcCpTKcmOu/kjCLg9zhJF+FY3QRVLNXjgzelKtxN54v9XuiKV71kBNI56vv3tg==
 
 install:
   # Decrypt key.snk
