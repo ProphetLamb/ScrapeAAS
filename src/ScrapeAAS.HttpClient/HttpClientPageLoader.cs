@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
-using ScrapeAAS.Extensions;
 
 namespace ScrapeAAS;
 
@@ -16,8 +15,6 @@ internal sealed class RawHttpClientStaticPageLoader(ILogger<PollyHttpClientStati
     private readonly HttpClient _httpClient = httpClient;
     public async Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {
-        _ = _logger.LogMethodDuration();
-
         _logger.LogDebug("Loading page {Url}", url);
 
         HttpRequestMessage req = new(HttpMethod.Get, url);
@@ -38,7 +35,6 @@ internal sealed class PollyHttpClientStaticPageLoader(ILogger<PollyHttpClientSta
 
     public async Task<HttpContent> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {
-        using var _ = _logger.LogMethodDuration();
         var policy = _options.RequestPolicy ?? Policy.NoOpAsync();
         var content = await policy.ExecuteAsync(cancellationToken => _rawStaticPageLoader.LoadAsync(url, cancellationToken), cancellationToken, continueOnCapturedContext: false).ConfigureAwait(false);
         return content;

@@ -9,6 +9,12 @@ using ScrapeAAS.Utility;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 using Polly;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
+using System.Collections.Generic;
+using System.Net.Http;
 
 namespace ScrapeAAS;
 
@@ -52,7 +58,6 @@ internal sealed class PuppeteerInstallationProvider(ILogger<PuppeteerInstallatio
         await _browserFetcherMutex.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            _ = _logger.LogMethodDuration();
             _logger.LogDebug("Ensuring Puppeteer browser executable is installed");
 
             BrowserFetcher browserFetcher = new(new BrowserFetcherOptions()
@@ -131,7 +136,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
             {
                 return browser;
             }
-            _ = _logger.LogMethodDuration();
+
             cancellationToken.ThrowIfCancellationRequested();
             var launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -347,7 +352,7 @@ internal sealed class ActiveHandlerTrackingEntry(
     private static readonly TimerCallback s_timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
     private readonly object _lock = new();
     private bool _timerInitialized;
-    private System.Threading.Timer? _timer;
+    private Timer? _timer;
     private TimerCallback? _callback;
 
     public LifetimeTrackingPageHandler Handler { get; private set; } = handler;
@@ -796,7 +801,6 @@ internal sealed class PollyPuppeteerBrowserPageLoader(IRawBrowserPageLoader rawB
 
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter parameter, CancellationToken cancellationToken = default)
     {
-        using var _ = _logger.LogMethodDuration();
         var policy = _options.RequestPolicy ?? Policy.NoOpAsync();
         var content = await policy.ExecuteAsync(async cancellationToken => await _rawBrowserPageLoader.LoadAsync(parameter, cancellationToken).ConfigureAwait(false), cancellationToken, continueOnCapturedContext: false).ConfigureAwait(false);
         return content;

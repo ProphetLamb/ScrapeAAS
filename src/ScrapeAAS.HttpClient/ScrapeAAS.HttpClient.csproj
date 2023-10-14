@@ -9,14 +9,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="7.0.0" />
     <PackageReference Include="Polly" Version="7.2.4" />
-    <PackageReference Include="PuppeteerSharp" Version="11.0.6" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
   </ItemGroup>
 
   <PropertyGroup Label="Package">
-    <Product>ScrapeAAS.PuppeteerSharp</Product>
-    <Description>PuppeteerSharp page loader for the ScrapeAAS library</Description>
-    <PackageTags>scraper;crawler;ASP.NET;PuppeteerSharp</PackageTags>
+    <Product>ScrapeAAS.HttpClient</Product>
+    <Description>HttpClient static page loader for the ScrapeAAS library</Description>
+    <PackageTags>scraper;crawler;ASP.NET;HttpClient</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>

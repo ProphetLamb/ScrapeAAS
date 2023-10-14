@@ -35,9 +35,9 @@ internal sealed class AngleSharpStaticPageLoader : IAngleSharpStaticPageLoader
 
     public async Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {
-        var content = await _pageLoader.LoadAsync(url, cancellationToken);
-        var contentStream = await content.ReadAsStreamAsync();
-        return await _context.OpenAsync(req => req.Content(contentStream), cancellationToken);
+        var content = await _pageLoader.LoadAsync(url, cancellationToken).ConfigureAwait(false);
+        var contentStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        return await _context.OpenAsync(req => req.Content(contentStream), cancellationToken).ConfigureAwait(false);
     }
 }
 
