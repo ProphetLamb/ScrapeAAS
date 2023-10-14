@@ -5,6 +5,13 @@ var configuration =
 
 var artefactsDirectory = Directory("./Artefacts");
 
+var versionInfo = GitVersion(new GitVersionSettings
+{
+    OutputType = GitVersionOutput.Json,
+    ConfigFile = "GitVersion.yml",
+    NoCache = true,
+});
+
 Task("Version")
     .Does(() =>
     {
@@ -14,7 +21,6 @@ Task("Version")
             UpdateAssemblyInfo = true,
             OutputType = GitVersionOutput.BuildServer
         });
-        GitVersion versionInfo = GitVersion(new GitVersionSettings { OutputType = GitVersionOutput.Json });
 
         Information("Semantic Version: " + versionInfo.AssemblySemVer);
         Information("Full Semantic Version: " + versionInfo.AssemblySemFileVer);
@@ -89,6 +95,8 @@ Task("Pack")
                 MSBuildSettings = new DotNetMSBuildSettings()
                 {
                     ContinuousIntegrationBuild = !BuildSystem.IsLocalBuild,
+                    Version = versionInfo.FullSemVer,
+                    AssemblyVersion = versionInfo.FullSemVer,
                 },
                 // NoBuild = true, // Workaround for inconsistency between windows and linux
                 NoRestore = true,
