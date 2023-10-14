@@ -25,8 +25,8 @@ environment:
 install:
   # Decrypt key.snk
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
-  - cmd: appveyor-tools\secure-file -decrypt key.snk.enc -secret %KEY_SNK_SECRET% -salt %KEY_SNK_SALT%
-  - sh: ./appveyor-tools/secure-file -decrypt key.snk.enc -secret $KEY_SNK_SECRET -salt $KEY_SNK_SALT
+  - cmd: appveyor-tools\secure-file -decrypt key.snk.enc -secret %KEY_SNK_SECRET% -salt %KEY_SNK_SALT% -out  key.snk
+  - sh: ./appveyor-tools/secure-file -decrypt key.snk.enc -secret $KEY_SNK_SECRET -salt $KEY_SNK_SALT -out key.snk
 
 build_script:
   # https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script
