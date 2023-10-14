@@ -238,8 +238,13 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
 
     private void CheckDisposedOrStarted()
     {
+#if NET7_0_OR_GREATER
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+#else
+        if (_disposed) {
+            throw new ObjectDisposedException(this.GetType().FullName);
+        }
+#endif
         if (_operationStarted)
         {
             throw new InvalidOperationException("The handler has already started one or more requests. Properties can only be modified before sending the first request.");
@@ -249,7 +254,13 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
     [MemberNotNull(nameof(_innerHandler))]
     private void SetOperationStarted()
     {
+#if NET7_0_OR_GREATER
         ObjectDisposedException.ThrowIf(_disposed, this);
+#else
+        if (_disposed) {
+            throw new ObjectDisposedException(this.GetType().FullName);
+        }
+#endif
 
         if (_innerHandler is null)
         {
