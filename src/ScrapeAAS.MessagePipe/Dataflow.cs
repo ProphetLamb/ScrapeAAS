@@ -55,54 +55,60 @@ public sealed class DataflowOptions : IOptions<DataflowOptions>
 
 public static class DataflowExtensions
 {
-    public static IServiceCollection AddMessagePipeDataFlow(this IServiceCollection services, Action<MessagePipeOptions>? messagePipeConfiguration = null)
+    public static IScrapeAASConfiguration UseMessagePipeDataFlow(this IScrapeAASConfiguration configuration, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
-        _ = services.AddMessagePipe(messagePipeConfiguration ?? delegate
-        { });
+        configuration.Use(ScrapeAASRole.Dataflow, (configuration, services) =>
+        {
+            var defaultMessagePipeConfiguration = (MessagePipeOptions options) =>
+            {
+                var lifetime = configuration.LongLivingServiceLifetime.ToInstanceLifetime();
+                options.InstanceLifetime = lifetime;
+                options.RequestHandlerLifetime = lifetime;
+            };
+            _ = services.AddMessagePipe(messagePipeConfiguration ?? defaultMessagePipeConfiguration);
 
-        var options = services.GetMessagePipeOptionsOrThrow();
-        var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
-
-        services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
-        services.Add(new(typeof(IMessagePipeDataflowSubscriber<>), typeof(MessagePipeDataflowSubscriber<>), lifetime));
-        return services;
+            services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
+            services.Add(new(typeof(IMessagePipeDataflowSubscriber<>), typeof(MessagePipeDataflowSubscriber<>), configuration.LongLivingServiceLifetime));
+        });
+        return configuration;
     }
 
     /// <summary>
-    /// Registers all a single singleton instance of <typeparamref name="TImplementation"/> for all implemented <see cref="IDataflowHandler{T}"/> interfaces.
+    /// Registers all a single instance of <typeparamref name="TImplementation"/> for all implemented <see cref="IDataflowHandler{T}"/> interfaces.
     /// </summary>
     /// <typeparam name="TImplementation">The type to register.</typeparam>
-    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <typeparamref name="TImplementation"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IServiceCollection AddDataFlow<TImplementation>(this IServiceCollection services)
+    public static IScrapeAASConfiguration AddDataFlow<TImplementation>(this IScrapeAASConfiguration configuration)
         where TImplementation : class
     {
-        return services.AddDataFlow(typeof(TImplementation));
+        return configuration.AddDataFlow(typeof(TImplementation));
     }
 
     /// <summary>
-    /// Registers all a single singleton instance of <paramref name="implementationType"/> for all implemented <see cref="IDataflowHandler{T}"/> interfaces.
+    /// Registers all a single instance of <paramref name="implementationType"/> for all implemented <see cref="IDataflowHandler{T}"/> interfaces.
     /// </summary>
     /// <param name="implementationType">The type to register.</param>
     /// <param name="services">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IServiceCollection AddDataFlow(this IServiceCollection services, Type implementationType)
+    public static IScrapeAASConfiguration AddDataFlow(this IScrapeAASConfiguration configuration, Type implementationType)
     {
-        var interfaces = implementationType.GetInterfaces()
-            .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IDataflowHandler<>))
-            .DistinctBy(x => x.GenericTypeArguments[0])
-            .ToArray();
-
-        if (interfaces.Length == 0)
+        configuration.Add((configuration, services) =>
         {
-            throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>");
-        }
+            var interfaces = implementationType.GetInterfaces()
+                .Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IDataflowHandler<>))
+                .DistinctBy(x => x.GenericTypeArguments[0])
+                .ToArray();
 
-        var options = services.GetMessagePipeOptionsOrThrow();
-        var lifetime = options.RequestHandlerLifetime.ToServiceLifetime();
-        var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, lifetime);
-        AddHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, lifetime);
-        return services;
+            if (interfaces.Length == 0)
+            {
+                throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>");
+            }
+
+            var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, configuration.LongLivingServiceLifetime);
+            AddHandlersForDataflowHandlers(services, implementationType, interfaces, existingServiceType, configuration.LongLivingServiceLifetime);
+        });
+        return configuration;
     }
 
     private static void AddHandlersForDataflowHandlers(IServiceCollection services, Type implementationType, Type[] interfaces, Type existingServiceType, ServiceLifetime lifetime)
@@ -137,5 +143,16 @@ public static class DataflowExtensions
             serviceType,
             FactoryHelper.ConvertImplementationTypeUnsafe(sp => sp.GetServiceOfType(existingServiceType, existingImplementationType)!, existingImplementationType),
             lifetime);
+    }
+
+    private static InstanceLifetime ToInstanceLifetime(this ServiceLifetime lifetime)
+    {
+        return lifetime switch
+        {
+            ServiceLifetime.Singleton => InstanceLifetime.Singleton,
+            ServiceLifetime.Scoped => InstanceLifetime.Scoped,
+            ServiceLifetime.Transient => InstanceLifetime.Transient,
+            _ => throw new ArgumentOutOfRangeException(nameof(lifetime))
+        };
     }
 }

@@ -18,12 +18,13 @@ builder.Services
         _ = options.CreateMap<RedditComment, RedditCommentDto>();
     }, typeof(Program))
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
-    .AddScrapeAAS()
-    .AddHostedService<RedditSubredditCrawler>()
-    .AddDataFlow<RedditPostSpider>()
-    .AddDataFlow<RedditCommentsSpider>()
-    .AddDataFlow<RedditSqliteSink>()
-    ;
+    .AddScrapeAAS(config => config
+        .UseDefaultConfiguration()
+        .AddDataFlow<RedditPostSpider>()
+        .AddDataFlow<RedditCommentsSpider>()
+        .AddDataFlow<RedditSqliteSink>()
+    )
+    .AddHostedService<RedditSubredditCrawler>();
 var app = builder.Build();
 app.Run();
 

@@ -22,22 +22,15 @@ internal class SingleProxyProvider(IOptions<SingleProxyProviderOptions> options)
     }
 }
 
-public static class ProxyExtensions
-{
-    public static IServiceCollection AddSingleProxyProvider(this IServiceCollection services, Action<SingleProxyProviderOptions> configure)
-    {
-        _ = services.Configure(configure);
-        _ = services.AddSingleton<IProxyProvider, SingleProxyProvider>();
-        return services;
-    }
-}
-
 public static class SingleProxyProviderExtensions
 {
-    public static IServiceCollection AddSingleProxyProvider(this IServiceCollection services, Action<SingleProxyProviderOptions> configure)
+    public static IScrapeAASConfiguration UseSingleProxyProvider(this IScrapeAASConfiguration configuration, Action<SingleProxyProviderOptions> configure)
     {
-        _ = services.Configure(configure);
-        _ = services.AddSingleton<IProxyProvider, SingleProxyProvider>();
-        return services;
+        configuration.Use(ScrapeAASRole.ProxyProvider, (configuration, services) =>
+        {
+            _ = services.Configure(configure);
+            services.Add(new(typeof(IProxyProvider), typeof(SingleProxyProvider), configuration.LongLivingServiceLifetime));
+        });
+        return configuration;
     }
 }

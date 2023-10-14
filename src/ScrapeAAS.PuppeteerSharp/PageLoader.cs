@@ -66,89 +66,98 @@ public static class PuppeteerBrowserExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="puppeteerBrowserConfiguration">The puppeteer browser configuration.</param>
     /// <param name="puppeteerPageHandlerFactoryConfiguration">The page handler factory configuration.</param>
-    public static IServiceCollection AddPuppeteerBrowserPageLoader(this IServiceCollection services, Action<PageLoaderOptions>? pageLoaderOptionsConfiguration = null, Action<PuppeteerBrowserOptions>? puppeteerBrowserConfiguration = null, Action<PuppeteerPageHandlerFactoryOptions>? puppeteerPageHandlerFactoryConfiguration = null)
+    public static IScrapeAASConfiguration UsePuppeteerBrowserPageLoader(this IScrapeAASConfiguration configuration, Action<PageLoaderOptions>? pageLoaderOptionsConfiguration = null, Action<PuppeteerBrowserOptions>? puppeteerBrowserConfiguration = null, Action<PuppeteerPageHandlerFactoryOptions>? puppeteerPageHandlerFactoryConfiguration = null)
     {
-        ConfigureOptions();
-        // Browser infrastructure
-        _ = services.AddSingleton<IPuppeteerInstallationProvider, PuppeteerInstallationProvider>();
-        _ = services.AddSingleton<IPuppeteerBrowserProvider, PuppeteerBrowserProvider>();
-        // Page handler factory
-        _ = services.AddTransient<IPuppeteerPageHandlerBuilder, LazyInitializationPageHandlerBuilder>();
-        _ = services.AddSingleton<IPuppeteerPageHandlerFactory, DefaultPuppeteerPageHandlerFactory>();
-        // Transient page loaders
-        _ = services.AddTransient(static sp => sp.GetRequiredService<IPuppeteerPageHandlerFactory>().CreateHandler(new()));
-        _ = services.AddTransient<IRawBrowserPageLoader, RawPuppeteerBrowserPageLoader>();
-        _ = services.AddTransient<IBrowserPageLoader, PollyPuppeteerBrowserPageLoader>();
-        return services;
-
-        void ConfigureOptions()
+        configuration.Use(ScrapeAASRole.BrowserPageLoader, (configuration, services) =>
         {
-            var pageLoaderOptions = services.AddOptions<PageLoaderOptions>();
-            if (pageLoaderOptionsConfiguration is not null)
+            ConfigureOptions();
+            // Browser infrastructure
+            _ = services.AddSingleton<IPuppeteerInstallationProvider, PuppeteerInstallationProvider>();
+            _ = services.AddSingleton<IPuppeteerBrowserProvider, PuppeteerBrowserProvider>();
+            // Page handler factory
+            _ = services.AddTransient<IPuppeteerPageHandlerBuilder, LazyInitializationPageHandlerBuilder>();
+            _ = services.AddSingleton<IPuppeteerPageHandlerFactory, DefaultPuppeteerPageHandlerFactory>();
+            // Transient page loaders
+            _ = services.AddTransient(static sp => sp.GetRequiredService<IPuppeteerPageHandlerFactory>().CreateHandler(new()));
+            _ = services.AddTransient<IRawBrowserPageLoader, RawPuppeteerBrowserPageLoader>();
+            _ = services.AddTransient<IBrowserPageLoader, PollyPuppeteerBrowserPageLoader>();
+
+            void ConfigureOptions()
             {
-                _ = pageLoaderOptions.Configure(pageLoaderOptionsConfiguration);
+                var pageLoaderOptions = services.AddOptions<PageLoaderOptions>();
+                if (pageLoaderOptionsConfiguration is not null)
+                {
+                    _ = pageLoaderOptions.Configure(pageLoaderOptionsConfiguration);
+                }
+                var puppeteerBrowserOptions = services.AddOptions<PuppeteerBrowserOptions>();
+                if (puppeteerBrowserConfiguration is not null)
+                {
+                    _ = puppeteerBrowserOptions.Configure(puppeteerBrowserConfiguration);
+                }
+                var puppeteerPageHandlerFactoryOptions = services.AddOptions<PuppeteerPageHandlerFactoryOptions>();
+                _ = puppeteerPageHandlerFactoryOptions.Configure(options => options.SuppressServiceScope = configuration.LongLivingServiceLifetime == ServiceLifetime.Singleton);
+                if (puppeteerPageHandlerFactoryConfiguration is not null)
+                {
+                    _ = puppeteerPageHandlerFactoryOptions.Configure(puppeteerPageHandlerFactoryConfiguration);
+                }
             }
-            var puppeteerBrowserOptions = services.AddOptions<PuppeteerBrowserOptions>();
-            if (puppeteerBrowserConfiguration is not null)
-            {
-                _ = puppeteerBrowserOptions.Configure(puppeteerBrowserConfiguration);
-            }
-            var puppeteerPageHandlerFactoryOptions = services.AddOptions<PuppeteerPageHandlerFactoryOptions>();
-            if (puppeteerPageHandlerFactoryConfiguration is not null)
-            {
-                _ = puppeteerPageHandlerFactoryOptions.Configure(puppeteerPageHandlerFactoryConfiguration);
-            }
-        }
+
+        });
+        return configuration;
     }
 }
 
 public static class StaticPageLoaderExtensions
 {
-    public static IServiceCollection AddHttpClientStaticPageLoader(this IServiceCollection services)
+    public static IScrapeAASConfiguration UseHttpClientStaticPageLoader(this IScrapeAASConfiguration configuration)
     {
-        _ = services.AddHttpClient<IRawStaticPageLoader>()
-            .ConfigureHttpClient(ConfigureHttpClient)
-            .ConfigureHttpMessageHandlerBuilder(ConfigureMessageHandler);
-
-        _ = services.AddTransient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>();
-        _ = services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
-        return services;
-
-        static void ConfigureHttpClient(HttpClient client)
+        configuration.Use(ScrapeAASRole.StaticPageLoader, (configuration, services) =>
         {
-            AddDefaultRequestHeaders(client.DefaultRequestHeaders);
-            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
-            client.DefaultRequestVersion = HttpVersion.Version20;
-            client.Timeout = TimeSpan.FromSeconds(30);
-        }
+            _ = services.AddHttpClient<IRawStaticPageLoader>()
+                .ConfigureHttpClient(ConfigureHttpClient)
+                .ConfigureHttpMessageHandlerBuilder(ConfigureMessageHandler);
 
-        static void AddDefaultRequestHeaders(HttpRequestHeaders headers)
-        {
-            headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
-            headers.Add("Accept-Encoding", "gzip, deflate, br");
-            headers.Add("Accept-Language", "en-US,en;q=0.5");
-            headers.Add("Sec-Fetch-Dest", "document");
-            headers.Add("Sec-Fetch-Mode", "navigate");
-            headers.Add("Sec-Fetch-Site", "none");
-            headers.Add("Sec-Fetch-User", "?1");
-            headers.Add("Upgrade-Insecure-Requests", "1");
-            headers.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36");
-        }
+            _ = services.AddTransient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>();
+            _ = services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
 
-        static void ConfigureMessageHandler(HttpMessageHandlerBuilder builder)
-        {
-            var proxyProvider = builder.Services.GetService<IProxyProvider>();
-            var cookiesStorage = builder.Services.GetService<ICookiesStorage>();
-            HttpClientHandler handler = new();
-            if (proxyProvider is not null)
+            static void ConfigureHttpClient(HttpClient client)
             {
-                handler.Proxy = proxyProvider.GetProxyAsync().GetAwaiter().GetResult();
+                AddDefaultRequestHeaders(client.DefaultRequestHeaders);
+                client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
+                client.DefaultRequestVersion = HttpVersion.Version20;
+                client.Timeout = TimeSpan.FromSeconds(30);
             }
-            if (cookiesStorage is not null)
+
+            static void AddDefaultRequestHeaders(HttpRequestHeaders headers)
             {
-                handler.CookieContainer = cookiesStorage.GetAsync().GetAwaiter().GetResult();
+                headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
+                headers.Add("Accept-Encoding", "gzip, deflate, br");
+                headers.Add("Accept-Language", "en-US,en;q=0.5");
+                headers.Add("Sec-Fetch-Dest", "document");
+                headers.Add("Sec-Fetch-Mode", "navigate");
+                headers.Add("Sec-Fetch-Site", "none");
+                headers.Add("Sec-Fetch-User", "?1");
+                headers.Add("Upgrade-Insecure-Requests", "1");
+                headers.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36");
             }
-            builder.PrimaryHandler = handler;
-        }
+
+            static void ConfigureMessageHandler(HttpMessageHandlerBuilder builder)
+            {
+                var proxyProvider = builder.Services.GetService<IProxyProvider>();
+                var cookiesStorage = builder.Services.GetService<ICookiesStorage>();
+                HttpClientHandler handler = new();
+                if (proxyProvider is not null)
+                {
+                    handler.Proxy = proxyProvider.GetProxyAsync().GetAwaiter().GetResult();
+                }
+                if (cookiesStorage is not null)
+                {
+                    handler.CookieContainer = cookiesStorage.GetAsync().GetAwaiter().GetResult();
+                }
+                builder.PrimaryHandler = handler;
+            }
+        });
+
+        return configuration;
     }
 }

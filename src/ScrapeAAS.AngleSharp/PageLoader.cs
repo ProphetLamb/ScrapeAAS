@@ -118,17 +118,19 @@ internal sealed class AngleSharpBrowserPageLoader : IAngleSharpBrowserPageLoader
 
 public static class AgnleSharpPageLoaderExtensions
 {
-    public static IServiceCollection AddAngleSharpPageLoader(this IServiceCollection services, Action<AngleSharpPageLoaderOptions>? angleSharpPageLoaderConfiguration = null)
+    public static IScrapeAASConfiguration UseAngleSharpPageLoader(this IScrapeAASConfiguration configuration, Action<AngleSharpPageLoaderOptions>? angleSharpPageLoaderConfiguration = null)
     {
-        var angleSharpPageLoaderOption = services.AddOptions<AngleSharpPageLoaderOptions>();
-        if (angleSharpPageLoaderConfiguration is not null)
+        configuration.Use(ScrapeAASRole.StaticPageLoader + "-anglesharp", (configuration, services) =>
         {
-            _ = angleSharpPageLoaderOption.Configure(angleSharpPageLoaderConfiguration);
-        }
+            var angleSharpPageLoaderOption = services.AddOptions<AngleSharpPageLoaderOptions>();
+            if (angleSharpPageLoaderConfiguration is not null)
+            {
+                _ = angleSharpPageLoaderOption.Configure(angleSharpPageLoaderConfiguration);
+            }
 
-        _ = services.AddTransient<IAngleSharpStaticPageLoader, AngleSharpStaticPageLoader>();
-        _ = services.AddTransient<IAngleSharpBrowserPageLoader, AngleSharpBrowserPageLoader>();
-
-        return services;
+            _ = services.AddTransient<IAngleSharpStaticPageLoader, AngleSharpStaticPageLoader>();
+            _ = services.AddTransient<IAngleSharpBrowserPageLoader, AngleSharpBrowserPageLoader>();
+        });
+        return configuration;
     }
 }

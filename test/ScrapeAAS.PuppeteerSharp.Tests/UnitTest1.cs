@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace ScrapeAAS.Tests;
 
@@ -16,8 +15,10 @@ public class Tests
     {
         var builder = Host.CreateApplicationBuilder();
         _ = builder.Services
-            .AddInMemoryCookiesStorage()
-            .AddPuppeteerBrowserPageLoader()
+            .AddScrapeAAS(config => config
+                .UseInMemoryCookiesStorage()
+                .UsePuppeteerBrowserPageLoader()
+            )
             .AddHostedService<PupeeteerBrowserPageLoaderService>();
         var app = builder.Build();
         app.Run();

@@ -18,9 +18,12 @@ public class Tests
     {
         var builder = Host.CreateApplicationBuilder();
         _ = builder.Services
-            .AddInMemoryCookiesStorage()
-            .AddMessagePipeDataFlow(options => options.RequestHandlerLifetime = InstanceLifetime.Scoped)
-            .AddDataFlow<BrowserPageLoadHandler>()
+            .AddScrapeAAS(config => config
+                .WithLongLivingServiceLifetime(ServiceLifetime.Scoped)
+                .UseInMemoryCookiesStorage()
+                .UseMessagePipeDataFlow()
+                .AddDataFlow<BrowserPageLoadHandler>()
+            )
             .AddHostedService<PupeeteerBrowserPageLoaderService>();
         var app = builder.Build();
         app.Run();
@@ -48,5 +51,6 @@ internal sealed class BrowserPageLoadHandler(ILogger<BrowserPageLoadHandler> log
     public async ValueTask HandleAsync(BrowserPageLoadParameter message, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Url: {Url}", message.Url);
+        await Task.Delay(10);
     }
 }

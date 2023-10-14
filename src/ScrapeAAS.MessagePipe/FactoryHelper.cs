@@ -8,7 +8,7 @@ internal static class FactoryHelper
 {
     public static Func<IServiceProvider, object> ConvertImplementationTypeUnsafe(Func<IServiceProvider, object> factory, Type implementationType)
     {
-        var method = typeof(FactoryHelper).GetMethod(nameof(FactoryHelper.CastFactoryType), BindingFlags.Static | BindingFlags.NonPublic);
+        var method = typeof(FactoryHelper).GetMethod(nameof(CastFactoryType), BindingFlags.Static | BindingFlags.NonPublic);
         var genericMethod = method!.MakeGenericMethod(implementationType);
         return (Func<IServiceProvider, object>)genericMethod.Invoke(null, new object[] { factory })!;
     }
