@@ -5,6 +5,22 @@ var configuration =
 
 var artefactsDirectory = Directory("./Artefacts");
 
+Task("Version")
+    .Does(() =>
+    {
+        Information("Versioning software for configuration {0}...", configuration);
+        GitVersion(new GitVersionSettings
+        {
+            UpdateAssemblyInfo = true,
+            OutputType = GitVersionOutput.BuildServer
+        });
+        GitVersion versionInfo = GitVersion(new GitVersionSettings { OutputType = GitVersionOutput.Json });
+
+        Information("Semantic Version: " + versionInfo.AssemblySemVer);
+        Information("Full Semantic Version: " + versionInfo.AssemblySemFileVer);
+        Information("Informational Version: " + versionInfo.InformationalVersion);
+    });
+
 Task("Clean")
     .Description("Cleans the artefacts, bin and obj directories.")
     .Does(() =>

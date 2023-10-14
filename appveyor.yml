@@ -25,7 +25,7 @@ environment:
 install:
   # Decrypt key.snk
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
-  - cmd: appveyor-tools\secure-file -decrypt key.snk.enc -secret %KEY_SNK_SECRET% -salt %KEY_SNK_SALT% -out  key.snk
+  - cmd: appveyor-tools\secure-file -decrypt key.snk.enc -secret %KEY_SNK_SECRET% -salt %KEY_SNK_SALT% -out key.snk
   - sh: ./appveyor-tools/secure-file -decrypt key.snk.enc -secret $KEY_SNK_SECRET -salt $KEY_SNK_SALT -out key.snk
 
 build_script:
@@ -50,15 +50,6 @@ build_script:
   - pwsh: dotnet cake --target=Pack
 
 deploy:
-  # - provider: NuGet
-  #   on:
-  #     branch: master
-  #     APPVEYOR_REPO_TAG: true
-  #   server: https://nuget.pkg.github.com/ProphetLamb/index.json
-  #   artifact: /.*(\.|\.s)nupkg/
-  #   username: ProphetLamb
-  #   api_key:
-  #     secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
   - provider: NuGet
     on:
       branch: master
