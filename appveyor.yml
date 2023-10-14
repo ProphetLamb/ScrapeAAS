@@ -52,14 +52,12 @@ build_script:
 deploy:
   - provider: NuGet
     on:
-      branch: master
       APPVEYOR_REPO_TAG: true
     artifact: /.*(\.|\.s)nupkg/
     api_key:
       secure: lD1a9bilWu/PdzXrm/vNU40hBHGWFtsCfebAYswjbkNDjK+Hx4hWpySUL3zmg38W
   - provider: "GitHub"
     on:
-      branch: master
       APPVEYOR_REPO_TAG: true
     description: "Updated the ScrapeAAS library"
     auth_token:

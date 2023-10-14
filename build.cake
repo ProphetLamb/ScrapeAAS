@@ -1,3 +1,5 @@
+#tool "dotnet:?package=GitVersion.Tool"
+
 var target = Argument("Target", "Default");
 var configuration =
     HasArgument("Configuration") ? Argument<string>("Configuration") :
