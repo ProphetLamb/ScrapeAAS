@@ -50,20 +50,32 @@ build_script:
   - pwsh: dotnet cake --target=Pack
 
 deploy:
+  # - provider: NuGet
+  #   on:
+  #     branch: master
+  #     APPVEYOR_REPO_TAG: true
+  #   server: https://nuget.pkg.github.com/ProphetLamb/index.json
+  #   artifact: /.*(\.|\.s)nupkg/
+  #   username: ProphetLamb
+  #   api_key:
+  #     secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
   - provider: NuGet
     on:
-      appveyor_repo_tag: true
-    server: https://nuget.pkg.github.com/ProphetLamb/index.json
-    artifact: /.*(\.|\.s)nupkg/
-    username: ProphetLamb
-    api_key:
-      secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
-  - provider: NuGet
-    on:
-      appveyor_repo_tag: true
+      branch: master
+      APPVEYOR_REPO_TAG: true
     artifact: /.*(\.|\.s)nupkg/
     api_key:
       secure: lD1a9bilWu/PdzXrm/vNU40hBHGWFtsCfebAYswjbkNDjK+Hx4hWpySUL3zmg38W
+  - provider: "GitHub"
+    on:
+      branch: master
+      APPVEYOR_REPO_TAG: true
+    description: "Updated the ScrapeAAS library"
+    auth_token:
+      secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
+    artifact: /.*(\.|\.s)nupkg/
+    draft: false
+    prerelease: false
 
 test: false
 
