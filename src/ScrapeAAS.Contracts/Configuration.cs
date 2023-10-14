@@ -27,7 +27,7 @@ public interface IScrapeAASConfiguration : IEnumerable<ScrapeAASRole>
 
     void Add(Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
     {
-        Use(new(default, configureServices));
+        Use(new(ScrapeAASRole.Default, configureServices));
     }
 
     Action<IScrapeAASConfiguration, IServiceCollection>? GetConfigurationOrDefault(ScrapeAASRole role);
@@ -40,25 +40,48 @@ public interface IScrapeAASConfiguration : IEnumerable<ScrapeAASRole>
     void Build(IServiceCollection services);
 }
 
-public readonly record struct ScrapeAASRole(string Value)
+[DebuggerDisplay("Value,nq")]
+public sealed class ScrapeAASRole(string value) : IEquatable<ScrapeAASRole>
 {
-    public static implicit operator ScrapeAASRole(string value) => new(value);
-
-    public static ScrapeAASRole CookieStorage => "cookiestorage";
-    public static ScrapeAASRole Dataflow => "dataflow";
-    public static ScrapeAASRole StaticPageLoader => "pageloader-static";
-    public static ScrapeAASRole BrowserPageLoader => "pageloader-browser";
-    public static ScrapeAASRole ProxyProvider => "proxyprovider";
-
+    public string Value { get; } = value;
     public bool IsDefault => string.IsNullOrEmpty(Value);
 
-    public static readonly ImmutableArray<ScrapeAASRole> RequiredRoles = ImmutableArray.Create([
+    public static ScrapeAASRole Default { get; } = new("");
+    public static ScrapeAASRole CookieStorage { get; } = new("cookiestorage");
+    public static ScrapeAASRole Dataflow { get; } = new("dataflow");
+    public static ScrapeAASRole StaticPageLoader { get; } = new("pageloader-static");
+    public static ScrapeAASRole BrowserPageLoader { get; } = new("pageloader-browser");
+    public static ScrapeAASRole ProxyProvider { get; } = new("proxyprovider");
+
+    public static ImmutableArray<ScrapeAASRole> RequiredRoles { get; } = ImmutableArray.Create([
         CookieStorage,
         Dataflow,
         StaticPageLoader,
         BrowserPageLoader,
-        ProxyProvider,
     ]);
+
+    public override string ToString()
+    {
+        return Value;
+    }
+
+    public override bool Equals([NotNullWhen(true)] object? obj)
+    {
+        return obj is ScrapeAASRole other && Equals(other);
+    }
+
+    public bool Equals(ScrapeAASRole? other)
+    {
+        return Value == other?.Value;
+    }
+
+    public override int GetHashCode()
+    {
+        return Value?.GetHashCode() ?? 0;
+    }
+
+    public static bool operator ==(ScrapeAASRole lhs, ScrapeAASRole rhs) => lhs.Equals(rhs);
+    public static bool operator !=(ScrapeAASRole lhs, ScrapeAASRole rhs) => !lhs.Equals(rhs);
 }
 
 public readonly record struct ScrapeAASUsecase(ScrapeAASRole Role, Action<IScrapeAASConfiguration, IServiceCollection> ConfigureServices);
@@ -66,14 +89,14 @@ public readonly record struct ScrapeAASUsecase(ScrapeAASRole Role, Action<IScrap
 internal sealed class DefaultScrapeAASConfiguration : IScrapeAASConfiguration
 {
     private readonly List<ScrapeAASUsecase> _usecases = [];
-    private bool _readonly = false;
+    private bool _readonly;
 
     public ServiceLifetime LongLivingServiceLifetime { get; set; } = ServiceLifetime.Scoped;
 
     public IScrapeAASConfiguration WithLongLivingServiceLifetime(ServiceLifetime lifetime)
     {
         ThrowIfReadonly();
-        if (lifetime is not ServiceLifetime.Singleton or ServiceLifetime.Scoped)
+        if (lifetime is not (ServiceLifetime.Singleton or ServiceLifetime.Scoped))
         {
             throw new ArgumentOutOfRangeException(nameof(lifetime), $"The long living service lifetime can only be {nameof(ServiceLifetime.Scoped)} or {nameof(ServiceLifetime.Singleton)}.");
         }
@@ -134,14 +157,13 @@ internal sealed class DefaultScrapeAASConfiguration : IScrapeAASConfiguration
     public Action<IScrapeAASConfiguration, IServiceCollection>? GetConfigurationOrDefault(ScrapeAASRole role)
     {
         return _usecases
-            .Where(u => !u.Role.IsDefault)
             .FirstOrDefault(u => u.Role == role)
             .ConfigureServices;
     }
 
     public IEnumerator<ScrapeAASRole> GetEnumerator()
     {
-        return _usecases.Select(usecase => usecase.Role).Where(role => !role.IsDefault).GetEnumerator();
+        return _usecases.Select(usecase => usecase.Role).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
@@ -156,6 +178,7 @@ public static class ScrapeAASConfigurationExtensions
     {
         DefaultScrapeAASConfiguration configuration = new();
         configure(configuration);
+        configuration.Build(services);
         return services;
     }
 }
@@ -164,6 +187,7 @@ public class MissingScrapeAASRoleException : Exception
 {
     public MissingScrapeAASRoleException()
     {
+        Role = ScrapeAASRole.Default;
     }
 
     public MissingScrapeAASRoleException(ScrapeAASRole role) : base(GetErrorMessage(role))
@@ -178,14 +202,17 @@ public class MissingScrapeAASRoleException : Exception
 
     public MissingScrapeAASRoleException(string? message) : base(message)
     {
+        Role = ScrapeAASRole.Default;
     }
 
     public MissingScrapeAASRoleException(string? message, Exception? innerException) : base(message, innerException)
     {
+        Role = ScrapeAASRole.Default;
     }
 
     protected MissingScrapeAASRoleException(SerializationInfo info, StreamingContext context) : base(info, context)
     {
+        Role = ScrapeAASRole.Default;
     }
 
     public ScrapeAASRole Role { get; }

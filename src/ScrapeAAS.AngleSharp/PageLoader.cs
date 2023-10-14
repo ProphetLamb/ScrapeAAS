@@ -36,7 +36,7 @@ internal sealed class AngleSharpStaticPageLoader : IAngleSharpStaticPageLoader
     public async Task<IDocument> LoadAsync(Uri url, CancellationToken cancellationToken = default)
     {
         var content = await _pageLoader.LoadAsync(url, cancellationToken).ConfigureAwait(false);
-        var contentStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        var contentStream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         return await _context.OpenAsync(req => req.Content(contentStream), cancellationToken).ConfigureAwait(false);
     }
 }
@@ -110,9 +110,9 @@ internal sealed class AngleSharpBrowserPageLoader : IAngleSharpBrowserPageLoader
 
     public async Task<IDocument> LoadAsync(BrowserPageLoadParameter parameter, CancellationToken cancellationToken = default)
     {
-        var content = await _pageLoader.LoadAsync(parameter, cancellationToken);
-        var contentStream = await content.ReadAsStreamAsync();
-        return await _context.OpenAsync(req => req.Content(contentStream), cancellationToken);
+        var content = await _pageLoader.LoadAsync(parameter, cancellationToken).ConfigureAwait(false);
+        var contentStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        return await _context.OpenAsync(req => req.Content(contentStream), cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -120,7 +120,7 @@ public static class AgnleSharpPageLoaderExtensions
 {
     public static IScrapeAASConfiguration UseAngleSharpPageLoader(this IScrapeAASConfiguration configuration, Action<AngleSharpPageLoaderOptions>? angleSharpPageLoaderConfiguration = null)
     {
-        configuration.Use(ScrapeAASRole.StaticPageLoader + "-anglesharp", (configuration, services) =>
+        configuration.Use(new("pageloader-anglesharp"), (configuration, services) =>
         {
             var angleSharpPageLoaderOption = services.AddOptions<AngleSharpPageLoaderOptions>();
             if (angleSharpPageLoaderConfiguration is not null)

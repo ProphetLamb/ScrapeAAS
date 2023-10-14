@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.HttpClient\ScrapeAAS.HttpClient.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" />
     <ProjectReference Include="..\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.HttpClient\ScrapeAAS.HttpClient.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
