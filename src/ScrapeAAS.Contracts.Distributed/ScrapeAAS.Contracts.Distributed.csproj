@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+
+    <RootNamespace>ScrapeAAS</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package">
+    <Product>ScrapeAAS.Contracts.Distributed</Product>
+    <Description>Interface definitions for distributed computing for the ScrapeAAS library.</Description>
+    <PackageTags>scraper;crawler;ASP.NET;distributed</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
