@@ -36,6 +36,10 @@
     <PackageReleaseNotes>https://github.com/ProphetLamb/ScrapeAAS/releases</PackageReleaseNotes>
   </PropertyGroup>
 
+  <PropertyGroup Label="Versioning">
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+  </PropertyGroup>
+
   <ItemGroup Label="Package References">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" Version="1.0.3" Condition="'$(DotnetFramework)' == 'true'" />
     <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" Version="17.7.30" />

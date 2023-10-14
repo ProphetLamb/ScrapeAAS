@@ -1,33 +1,9 @@
-#tool "dotnet:?package=GitVersion.Tool&version=5.12.0"
-
 var target = Argument("Target", "Default");
 var configuration =
     HasArgument("Configuration") ? Argument<string>("Configuration") :
     EnvironmentVariable("Configuration", "Release");
 
 var artefactsDirectory = Directory("./Artefacts");
-
-var versionInfo = GitVersion(new GitVersionSettings
-{
-    OutputType = GitVersionOutput.Json,
-    ConfigFile = "GitVersion.yml",
-    NoCache = true,
-});
-
-Task("Version")
-    .Does(() =>
-    {
-        Information("Versioning software for configuration {0}...", configuration);
-        GitVersion(new GitVersionSettings
-        {
-            UpdateAssemblyInfo = true,
-            OutputType = GitVersionOutput.BuildServer
-        });
-
-        Information("Semantic Version: " + versionInfo.AssemblySemVer);
-        Information("Full Semantic Version: " + versionInfo.AssemblySemFileVer);
-        Information("Informational Version: " + versionInfo.InformationalVersion);
-    });
 
 Task("Clean")
     .Description("Cleans the artefacts, bin and obj directories.")
@@ -97,8 +73,6 @@ Task("Pack")
                 MSBuildSettings = new DotNetMSBuildSettings()
                 {
                     ContinuousIntegrationBuild = !BuildSystem.IsLocalBuild,
-                    Version = versionInfo.FullSemVer,
-                    AssemblyVersion = versionInfo.FullSemVer,
                 },
                 // NoBuild = true, // Workaround for inconsistency between windows and linux
                 NoRestore = true,
