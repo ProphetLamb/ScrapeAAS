@@ -16,6 +16,17 @@ environment:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   # Set the build number in MinVer.
   MINVERBUILDMETADATA: build.%APPVEYOR_BUILD_NUMBER%
+  # Encryption secrets for key.snk
+  KEY_SNK_SECRET:
+    secret: WEAU/04pRkt9ERrpi/EgCeabYiu7Rgtx23YTsvrmnMglrJSpglrH6ZJCkNUfHMsC78FY21YYy9B1ZWjxaj1/Zj6bXojjBf/z0oRL8ko1GDg=
+  KEY_SNK_SALT:
+    secret: a9Smx8udBiWN/3Fu8nM9F8TLiqr6VkQLfVTJZ/j6GP0uZIptd8U=
+
+install:
+  # Decrypt key.snk
+  - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
+  - cmd: appveyor-tools\secure-file -decrypt key.snk.enc -secret %KEY_SNK_SECRET% -salt %KEY_SNK_SALT%
+  - sh: ./appveyor-tools/secure-file -decrypt key.snk.enc -secret $KEY_SNK_SECRET -salt $KEY_SNK_SALT
 
 build_script:
   # https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script
@@ -37,6 +48,22 @@ build_script:
   - pwsh: dotnet cake --target=Build
   - pwsh: dotnet cake --target=Test
   - pwsh: dotnet cake --target=Pack
+
+deploy:
+  - provider: NuGet
+    on:
+      appveyor_repo_tag: true
+    server: https://nuget.pkg.github.com/ProphetLamb/index.json
+    artifact: /.*(\.|\.s)nupkg/
+    username: ProphetLamb
+    api_key:
+      secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
+  - provider: NuGet
+    on:
+      appveyor_repo_tag: true
+    artifact: /.*(\.|\.s)nupkg/
+    api_key:
+      secure: lD1a9bilWu/PdzXrm/vNU40hBHGWFtsCfebAYswjbkNDjK+Hx4hWpySUL3zmg38W
 
 test: false
 
