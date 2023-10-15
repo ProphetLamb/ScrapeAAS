@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFrameworks>net7.0;;net6.0</TargetFrameworks>
+    <TargetFrameworks>net7.0;net6.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -11,18 +11,26 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ScrapeAAS\ScrapeAAS.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\ScrapeAAS\ScrapeAAS.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.HttpClient\ScrapeAAS.HttpClient.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
+    <ProjectReference Include="..\..\src\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
     <PackageReference Include="Dawn.Guard" Version="1.12.0" />
-    <PackageReference Include="Microsoft.Data.SQLite" Version="7.0.11" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.11">
+    <PackageReference Include="Microsoft.Data.SQLite" Version="7.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.12" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
   </ItemGroup>

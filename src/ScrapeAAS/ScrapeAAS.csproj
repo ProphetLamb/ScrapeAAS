@@ -1,17 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.HttpClient\ScrapeAAS.HttpClient.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
-    <ProjectReference Include="..\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
+    <ProjectReference Include="..\ScrapeAAS.AngleSharp\ScrapeAAS.AngleSharp.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.Contracts\ScrapeAAS.Contracts.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.HttpClient\ScrapeAAS.HttpClient.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.InMemory\ScrapeAAS.InMemory.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.MessagePipe\ScrapeAAS.MessagePipe.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.0.5" />
+    <PackageReference Include="MessagePipe" Version="1.7.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.1" />
+    <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
+    <PackageReference Include="Polly" Version="8.0.0" />
+    <PackageReference Include="PuppeteerSharp" Version="12.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFrameworks>net7.0;;net6.0</TargetFrameworks>
+    <TargetFrameworks>net7.0;net6.0</TargetFrameworks>
   </PropertyGroup>
 
 
