@@ -13,21 +13,21 @@ public interface IScrapeAASConfiguration : IEnumerable<ScrapeAASRole>
     ServiceLifetime LongLivingServiceLifetime { get; }
     IScrapeAASConfiguration WithLongLivingServiceLifetime(ServiceLifetime lifetime);
 
-    void Use(ScrapeAASUsecase usecase);
+    IScrapeAASConfiguration Use(ScrapeAASUsecase usecase);
 
-    void Use(ScrapeAASRole role, Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
+    IScrapeAASConfiguration Use(ScrapeAASRole role, Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
     {
-        Use(new(role, configureServices));
+        return Use(new(role, configureServices));
     }
 
-    void Use(ScrapeAASRole role, Action<IServiceCollection> configureServices)
+    IScrapeAASConfiguration Use(ScrapeAASRole role, Action<IServiceCollection> configureServices)
     {
-        Use(new(role, (config, services) => configureServices(services)));
+        return Use(new(role, (config, services) => configureServices(services)));
     }
 
-    void Add(Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
+    IScrapeAASConfiguration Add(Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
     {
-        Use(new(ScrapeAASRole.Default, configureServices));
+        return Use(new(ScrapeAASRole.Default, configureServices));
     }
 
     Action<IScrapeAASConfiguration, IServiceCollection>? GetConfigurationOrDefault(ScrapeAASRole role);
@@ -103,22 +103,23 @@ internal sealed class DefaultScrapeAASConfiguration : IScrapeAASConfiguration
         return this;
     }
 
-    public void Use(ScrapeAASUsecase usecase)
+    public IScrapeAASConfiguration Use(ScrapeAASUsecase usecase)
     {
         ThrowIfReadonly();
         if (usecase.Role.IsDefault)
         {
             _usecases.Add(usecase);
-            return;
+            return this;
         }
         var existing = _usecases.FindIndex(u => u.Role == usecase.Role);
         if (existing >= 0)
         {
             _usecases[existing] = usecase;
-            return;
+            return this;
         }
 
         _usecases.Add(usecase);
+        return this;
     }
 
     public void Build(IServiceCollection services)
