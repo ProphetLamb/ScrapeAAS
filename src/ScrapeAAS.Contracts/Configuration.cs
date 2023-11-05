@@ -25,10 +25,24 @@ public interface IScrapeAASConfiguration : IEnumerable<ScrapeAASRole>
         return Use(new(role, (config, services) => configureServices(services)));
     }
 
+    IScrapeAASConfiguration UseIf(bool condition, ScrapeAASUsecase usecase)
+    {
+        return condition ? Use(usecase) : this;
+    }
+    IScrapeAASConfiguration UseIf(bool condition, ScrapeAASRole role, Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
+    {
+        return condition ? Use(role, configureServices) : this;
+    }
+    IScrapeAASConfiguration UseIf(bool condition, ScrapeAASRole role, Action<IServiceCollection> configureServices)
+    {
+        return condition ? Use(role, configureServices) : this;
+    }
+
     IScrapeAASConfiguration Add(Action<IScrapeAASConfiguration, IServiceCollection> configureServices)
     {
         return Use(new(ScrapeAASRole.Default, configureServices));
     }
+
 
     Action<IScrapeAASConfiguration, IServiceCollection>? GetConfigurationOrDefault(ScrapeAASRole role);
 
