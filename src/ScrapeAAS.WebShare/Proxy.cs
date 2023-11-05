@@ -186,13 +186,16 @@ internal sealed class RandomWebShareProxyProvider(IWebShareProxyListProvider pro
 
 public static class WebShareProviderExtensions
 {
-    public static IServiceCollection AddWebShareProxyProvider(this IServiceCollection services, Action<WebShareProviderOptions> configure)
+    public static IScrapeAASConfiguration AddWebShareProxyProvider(this IScrapeAASConfiguration configuration, Action<WebShareProviderOptions> configure)
     {
-        _ = services.Configure(configure);
-        _ = services
-            .AddSingleton<IRawWebShareProxyListProvider, WebShareProxyListProvider>()
-            .AddSingleton<IWebShareProxyListProvider, CachedWebShareProxyProvider>()
-            .AddSingleton<IProxyProvider, RandomWebShareProxyProvider>();
-        return services;
+        configuration.Use(ScrapeAASRole.ProxyProvider, services =>
+        {
+            _ = services.Configure(configure);
+            _ = services
+                .AddSingleton<IRawWebShareProxyListProvider, WebShareProxyListProvider>()
+                .AddSingleton<IWebShareProxyListProvider, CachedWebShareProxyProvider>()
+                .AddSingleton<IProxyProvider, RandomWebShareProxyProvider>();
+        });
+        return configuration;
     }
 }
