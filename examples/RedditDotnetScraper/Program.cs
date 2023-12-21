@@ -20,9 +20,9 @@ builder.Services
     .AddDbContext<RedditPostSqliteContext>(options => options.UseSqlite("Data Source=reddit.db"))
     .AddScrapeAAS(config => config
         .UseDefaultConfiguration()
-        .AddDataFlow<RedditPostSpider>()
-        .AddDataFlow<RedditCommentsSpider>()
-        .AddDataFlow<RedditSqliteSink>()
+        .AddDataflow<RedditPostSpider>()
+        .AddDataflow<RedditCommentsSpider>()
+        .AddDataflow<RedditSqliteSink>()
     )
     .AddHostedService<RedditSubredditCrawler>();
 var app = builder.Build();

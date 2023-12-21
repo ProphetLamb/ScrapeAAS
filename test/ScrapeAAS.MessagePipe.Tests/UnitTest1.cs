@@ -20,9 +20,11 @@ public class Tests
         _ = builder.Services
             .AddScrapeAAS(config => config
                 .WithLongLivingServiceLifetime(ServiceLifetime.Scoped)
+                .UseHttpClientStaticPageLoader()
+                .UsePuppeteerBrowserPageLoader()
                 .UseInMemoryCookiesStorage()
-                .UseMessagePipeDataFlow()
-                .AddDataFlow<BrowserPageLoadHandler>()
+                .UseMessagePipeDataflow()
+                .AddDataflow<BrowserPageLoadHandler>()
             )
             .AddHostedService<PupeeteerBrowserPageLoaderService>();
         var app = builder.Build();

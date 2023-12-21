@@ -113,7 +113,10 @@ public static class DataflowExtensions
         ScrapeAASUsecase injector = new(new($"injector-{assembly.GetName().FullName}"), (configuration, services) =>
         {
             var types = GetTypesToInject(assembly);
-
+            foreach (var type in types)
+            {
+                _ = AddDataflow(configuration, type);
+            }
         });
         return configuration.Use(injector);
     }
@@ -140,7 +143,7 @@ public static class DataflowExtensions
     /// <param name="configuration">The configuration.</param>
     /// <param name="messagePipeConfiguration">The <see cref="MessagePipe"/> configuration.</param>
     [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
-    public static IScrapeAASConfiguration UseMessagePipeDataFlow(this IScrapeAASConfiguration configuration, Action<MessagePipeOptions>? messagePipeConfiguration = null)
+    public static IScrapeAASConfiguration UseMessagePipeDataflow(this IScrapeAASConfiguration configuration, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
         configuration
             .AddDataflowHandlers()
@@ -166,10 +169,10 @@ public static class DataflowExtensions
     /// <typeparam name="TImplementation">The type to register.</typeparam>
     /// <param name="configuration">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <typeparamref name="TImplementation"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IScrapeAASConfiguration AddDataFlow<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TImplementation>(this IScrapeAASConfiguration configuration)
+    public static IScrapeAASConfiguration AddDataflow<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TImplementation>(this IScrapeAASConfiguration configuration)
         where TImplementation : class
     {
-        return configuration.AddDataFlow(typeof(TImplementation));
+        return configuration.AddDataflow(typeof(TImplementation));
     }
 
     /// <summary>
@@ -178,7 +181,7 @@ public static class DataflowExtensions
     /// <param name="implementationType">The type to register.</param>
     /// <param name="services">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IScrapeAASConfiguration AddDataFlow(this IScrapeAASConfiguration configuration, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type implementationType)
+    public static IScrapeAASConfiguration AddDataflow(this IScrapeAASConfiguration configuration, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type implementationType)
     {
         configuration.Add((configuration, services) =>
         {

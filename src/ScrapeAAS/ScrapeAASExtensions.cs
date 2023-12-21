@@ -18,7 +18,7 @@ public static class ScrapeAASExtensions
             .UseInMemoryCookiesStorage()
             .UseHttpClientStaticPageLoader()
             .UsePuppeteerBrowserPageLoader()
-            .UseMessagePipeDataFlow()
+            .UseMessagePipeDataflow()
             .UseAngleSharpPageLoader();
     }
 }

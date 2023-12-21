@@ -23,8 +23,8 @@ builder.Services
   .AddAutoMapper()
   .AddScrapeAAS()
   .AddHostedService<RedditSubredditCrawler>()
-  .AddDataFlow<RedditPostSpider>()
-  .AddDataFlow<RedditSqliteSink>()
+  .AddDataflow<RedditPostSpider>()
+  .AddDataflow<RedditSqliteSink>()
 
 sealed class RedditSubredditCrawler : BackgroundService {
   private readonly IAngleSharpBrowserPageLoader _browserPageLoader;
