@@ -2,6 +2,8 @@
 using MessagePipe;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 
 namespace ScrapeAAS;
 
@@ -55,21 +57,106 @@ public sealed class DataflowOptions : IOptions<DataflowOptions>
 
 public static class DataflowExtensions
 {
+    internal const string AccessDataflowHandlerTypes = "Scans types for IDataflowHandler<> implementations.";
+
+    /// <summary>
+    /// Adds all <see cref="IDataflowHandler{T}"/>s in <see cref="Type"/>s in the <see cref="Assembly.GetEntryAssembly"/> or <see cref="Assembly.GetCallingAssembly"/>.
+    /// </summary>
+    /// <param name="configuration"></param>
+    /// <returns></returns>
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
+    public static IScrapeAASConfiguration AddDataflowHandlers(this IScrapeAASConfiguration configuration)
+    {
+        return AddDataflowHandlers(configuration, Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly());
+    }
+
+    /// <summary>
+    /// Adds all <see cref="IDataflowHandler{T}"/>s in <see cref="Type"/>s in the <see cref="Assembly"/> of each <see cref="Type"/>.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <param name="typesInAssemblies">The types indicating the assemblies whose types to add.</param>
+    /// <returns></returns>
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
+    public static IScrapeAASConfiguration AddDataflowHandlers(this IScrapeAASConfiguration configuration, params Type[] typesInAssemblies)
+    {
+        var assemblies = typesInAssemblies
+            .Select(t => t.Assembly)
+            .Distinct()
+            .ToArray();
+        return AddDataflowHandlers(configuration, assemblies);
+    }
+
+    /// <summary>
+    /// Adds all <see cref="IDataflowHandler{T}"/>s in <see cref="Type"/>s in the assemblies.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <param name="assemblies">The assemblies whose types to add.</param>
+    /// <returns></returns>
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
+    public static IScrapeAASConfiguration AddDataflowHandlers(this IScrapeAASConfiguration configuration, params Assembly[] assemblies)
+    {
+        foreach (var assembly in assemblies)
+        {
+            _ = AddDataflowHandlers(configuration, assembly);
+        }
+        return configuration;
+    }
+
+    /// <summary>
+    /// Adds all <see cref="IDataflowHandler{T}"/>s in <see cref="Type"/>s in the assembly.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <param name="assembly">The assembly whose types to add.</param>
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
+    public static IScrapeAASConfiguration AddDataflowHandlers(this IScrapeAASConfiguration configuration, Assembly assembly)
+    {
+        ScrapeAASUsecase injector = new(new($"injector-{assembly.GetName().FullName}"), (configuration, services) =>
+        {
+            var types = GetTypesToInject(assembly);
+
+        });
+        return configuration.Use(injector);
+    }
+
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
+    private static IEnumerable<Type> GetTypesToInject(Assembly assembly)
+    {
+        var types = assembly
+            .GetTypes()
+            .Where(t
+            => !t.IsAbstract
+            && !t.IsInterface
+            && t.GetInterfaces().Any(i
+                => t.IsGenericType
+                && t.GetGenericTypeDefinition() == typeof(IDataflowHandler<>)
+                )
+            );
+        return types;
+    }
+
+    /// <summary>
+    /// Adds <see cref="MessagePipe"/> powered dataflow capabilities and adds all <see cref="IDataflowHandler{T}"/>s in <see cref="Type"/>s in the <see cref="Assembly"/> of each <see cref="Type"/>.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <param name="messagePipeConfiguration">The <see cref="MessagePipe"/> configuration.</param>
+    [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
     public static IScrapeAASConfiguration UseMessagePipeDataFlow(this IScrapeAASConfiguration configuration, Action<MessagePipeOptions>? messagePipeConfiguration = null)
     {
-        configuration.Use(ScrapeAASRole.Dataflow, (configuration, services) =>
-        {
-            var defaultMessagePipeConfiguration = (MessagePipeOptions options) =>
+        configuration
+            .AddDataflowHandlers()
+            .Use(ScrapeAASRole.Dataflow, (configuration, services) =>
             {
-                var lifetime = configuration.LongLivingServiceLifetime.ToInstanceLifetime();
-                options.InstanceLifetime = lifetime;
-                options.RequestHandlerLifetime = lifetime;
-            };
-            _ = services.AddMessagePipe(messagePipeConfiguration ?? defaultMessagePipeConfiguration);
+                var defaultMessagePipeConfiguration = (MessagePipeOptions options) =>
+                {
+                    var lifetime = configuration.LongLivingServiceLifetime.ToInstanceLifetime();
+                    options.InstanceLifetime = lifetime;
+                    options.RequestHandlerLifetime = lifetime;
+                };
+                _ = services.AddMessagePipe(messagePipeConfiguration ?? defaultMessagePipeConfiguration);
 
-            services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
-            services.Add(new(typeof(IMessagePipeDataflowSubscriber<>), typeof(MessagePipeDataflowSubscriber<>), configuration.LongLivingServiceLifetime));
-        });
+                services.Add(new(typeof(IDataflowPublisher<>), typeof(MessagePipeDataflowPublisher<>), ServiceLifetime.Transient));
+                services.Add(new(typeof(IMessagePipeDataflowSubscriber<>), typeof(MessagePipeDataflowSubscriber<>), configuration.LongLivingServiceLifetime));
+            });
         return configuration;
     }
 
@@ -79,7 +166,7 @@ public static class DataflowExtensions
     /// <typeparam name="TImplementation">The type to register.</typeparam>
     /// <param name="configuration">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <typeparamref name="TImplementation"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IScrapeAASConfiguration AddDataFlow<TImplementation>(this IScrapeAASConfiguration configuration)
+    public static IScrapeAASConfiguration AddDataFlow<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TImplementation>(this IScrapeAASConfiguration configuration)
         where TImplementation : class
     {
         return configuration.AddDataFlow(typeof(TImplementation));
@@ -91,7 +178,7 @@ public static class DataflowExtensions
     /// <param name="implementationType">The type to register.</param>
     /// <param name="services">The service collection.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
-    public static IScrapeAASConfiguration AddDataFlow(this IScrapeAASConfiguration configuration, Type implementationType)
+    public static IScrapeAASConfiguration AddDataFlow(this IScrapeAASConfiguration configuration, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type implementationType)
     {
         configuration.Add((configuration, services) =>
         {
@@ -125,7 +212,7 @@ public static class DataflowExtensions
         }
     }
 
-    private static Type AddServicesForInterfacesOfType(IServiceCollection services, Type implementationType, Type[] interfaces, ServiceLifetime lifetime)
+    private static Type AddServicesForInterfacesOfType(IServiceCollection services, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type implementationType, Type[] interfaces, ServiceLifetime lifetime)
     {
         services.Add(new ServiceDescriptor(implementationType, implementationType, lifetime));
         foreach (var interfaceType in interfaces)
