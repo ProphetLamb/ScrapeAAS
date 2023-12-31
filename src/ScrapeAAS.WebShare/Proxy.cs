@@ -186,7 +186,7 @@ internal sealed class RandomWebShareProxyProvider(IWebShareProxyListProvider pro
 
 public static class WebShareProviderExtensions
 {
-    public static IScrapeAASConfiguration AddWebShareProxyProvider(this IScrapeAASConfiguration configuration, Action<WebShareProviderOptions> configure)
+    public static IScrapeAASConfiguration UseWebShareProxyProvider(this IScrapeAASConfiguration configuration, Action<WebShareProviderOptions> configure)
     {
         configuration.Use(ScrapeAASRole.ProxyProvider, services =>
         {
