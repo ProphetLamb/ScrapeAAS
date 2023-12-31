@@ -130,8 +130,8 @@ public static class DataflowExtensions
             => !t.IsAbstract
             && !t.IsInterface
             && t.GetInterfaces().Any(i
-                => t.IsGenericType
-                && t.GetGenericTypeDefinition() == typeof(IDataflowHandler<>)
+                => i.IsGenericType
+                && i.GetGenericTypeDefinition() == typeof(IDataflowHandler<>)
                 )
             );
         return types;
