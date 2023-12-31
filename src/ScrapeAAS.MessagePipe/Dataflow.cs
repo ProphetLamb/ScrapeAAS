@@ -181,6 +181,10 @@ public static class DataflowExtensions
     /// <exception cref="ArgumentException">Thrown if <paramref name="implementationType"/> does not implement <see cref="IDataflowHandler{T}"/>.</exception>
     public static IScrapeAASConfiguration AddDataflow(this IScrapeAASConfiguration configuration, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type implementationType)
     {
+        if (implementationType.IsAbstract || implementationType.IsInterface || implementationType.IsGenericType)
+        {
+            throw new ArgumentException($"Type {implementationType} must not be abstract, an interface or a generic type.", nameof(implementationType));
+        }
         configuration.Add((configuration, services) =>
         {
             var interfaces = implementationType.GetInterfaces()
@@ -190,7 +194,7 @@ public static class DataflowExtensions
 
             if (interfaces.Length == 0)
             {
-                throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>");
+                throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>", nameof(implementationType));
             }
 
             var existingServiceType = AddServicesForInterfacesOfType(services, implementationType, interfaces, configuration.LongLivingServiceLifetime);
