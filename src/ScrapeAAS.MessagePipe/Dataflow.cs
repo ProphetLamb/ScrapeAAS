@@ -126,6 +126,7 @@ public static class DataflowExtensions
             .Where(t
             => !t.IsAbstract
             && !t.IsInterface
+            && !t.IsGenericType
             && t.GetInterfaces().Any(i
                 => i.IsGenericType
                 && i.GetGenericTypeDefinition() == typeof(IDataflowHandler<>)
