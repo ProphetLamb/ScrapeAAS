@@ -110,15 +110,12 @@ public static class DataflowExtensions
     [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
     public static IScrapeAASConfiguration AddDataflowHandlers(this IScrapeAASConfiguration configuration, Assembly assembly)
     {
-        ScrapeAASUsecase injector = new(new($"injector-{assembly.GetName().FullName}"), (configuration, services) =>
+        var types = GetTypesToInject(assembly);
+        foreach (var type in types)
         {
-            var types = GetTypesToInject(assembly);
-            foreach (var type in types)
-            {
-                _ = AddDataflow(configuration, type);
-            }
-        });
-        return configuration.Use(injector);
+            _ = AddDataflow(configuration, type);
+        }
+        return configuration;
     }
 
     [RequiresUnreferencedCode(AccessDataflowHandlerTypes)]
