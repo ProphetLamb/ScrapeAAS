@@ -161,19 +161,17 @@ internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger,
 /// <summary>
 /// Inserts <see cref="RedditPost"/>s into a SQLite database.
 /// </summary>
-internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper) : IAsyncDisposable, IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
+internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper) : IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
 {
-    public async ValueTask DisposeAsync()
-    {
-        _ = await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
-        _ = await context.SaveChangesAsync().ConfigureAwait(false);
-    }
-
     public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
         var messageDto = mapper.Map<RedditSubredditDto>(message);
         _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
-        _ = await context.Subreddits.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
+        if (await context.Subreddits.FindAsync(new object[] { message.Name }, cancellationToken).ConfigureAwait(false) is null)
+        {
+            _ = await context.Subreddits.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
+        }
+        _ = await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
@@ -186,6 +184,7 @@ internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper 
         }
         _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
         _ = await context.Posts.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
+        _ = await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask HandleAsync(RedditComment message, CancellationToken cancellationToken = default)
@@ -198,6 +197,7 @@ internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper 
         }
         _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
         _ = await context.Comments.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
+        _ = await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }
 
