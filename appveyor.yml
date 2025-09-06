@@ -55,13 +55,13 @@ deploy:
       APPVEYOR_REPO_TAG: true
     artifact: /.*(\.|\.s)nupkg/
     api_key:
-      secure: lD1a9bilWu/PdzXrm/vNU40hBHGWFtsCfebAYswjbkNDjK+Hx4hWpySUL3zmg38W
+      secure: m+nCIf6nf0G1mfwQP1HRMSFQ1F2B9xQpN1Qgdfoyj1KYOgL9MlKt9ElhCMs6ES9/
   - provider: "GitHub"
     on:
       APPVEYOR_REPO_TAG: true
     description: "Updated the ScrapeAAS library"
     auth_token:
-      secure: SdasydzHH9f2Gpv1yPBDwvQc9CXLQxFnAdirCHgwc+YJECS+A7V7DaCfVPTnRtVy/J3LdAZyABTywD81jvGWJs95vp6URpxyAjnJp/j+kMusR3Zg7mMIHZ/Y4t2u+6rT
+      secure: ELkrjjhdnv6psdBBfZ2jLlfJLDoOvBwzq3i3ohk+Ai99Zfyn2qTRYig9VQRx2WV2
     artifact: /.*(\.|\.s)nupkg/
     draft: false
     prerelease: false
