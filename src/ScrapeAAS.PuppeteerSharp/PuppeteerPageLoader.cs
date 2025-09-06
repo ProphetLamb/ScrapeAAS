@@ -1,20 +1,13 @@
-using Microsoft.Extensions.Logging;
-using ScrapeAAS.Extensions;
-using Microsoft.Extensions.Options;
-using PuppeteerSharp;
-using PuppeteerSharp.BrowserData;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using ScrapeAAS.Utility;
-using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Polly;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Collections.Generic;
-using System.Net.Http;
+using PuppeteerSharp;
+using PuppeteerSharp.BrowserData;
+using ScrapeAAS.Utility;
 
 namespace ScrapeAAS;
 
@@ -30,7 +23,7 @@ public sealed class PuppeteerBrowserOptions : IOptions<PuppeteerBrowserOptions>
 /// <remarks>
 /// Implemented for internal use. No retry policy is applied.
 /// </remarks>
-public interface IRawBrowserPageLoader : IBrowserPageLoader { }
+public interface IRawBrowserPageLoader : IBrowserPageLoader;
 
 public interface IPuppeteerInstallationProvider
 {
@@ -60,7 +53,7 @@ internal sealed class PuppeteerInstallationProvider(ILogger<PuppeteerInstallatio
         {
             _logger.LogDebug("Ensuring Puppeteer browser executable is installed");
 
-            BrowserFetcher browserFetcher = new(new BrowserFetcherOptions()
+            using BrowserFetcher browserFetcher = new(new BrowserFetcherOptions
             {
                 Browser = SupportedBrowser.Chrome,
                 Path = _puppeteerBrowserOptions.ExecutablePath,
@@ -96,9 +89,6 @@ public sealed record PuppeteerBrowserSpecificaiton(SupportedBrowser SupportedBro
 
 internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IProxyProvider? proxyProvider = null) : IPuppeteerBrowserProvider, IAsyncDisposable
 {
-    private readonly IPuppeteerInstallationProvider _puppeteerBrowsers = puppeteerBrowsers;
-    private readonly ILogger _logger = logger;
-    private readonly IProxyProvider? _proxyProvider = proxyProvider;
     private readonly SemaphoreSlim _browserInitializeMutex = new(1, 1);
     private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = [];
 
@@ -114,6 +104,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
         {
             return new(Task.WhenAll(activeDisposeTasks));
         }
+        _browserInitializeMutex.Dispose();
         return default;
     }
 
@@ -128,6 +119,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
 
     private async Task<IBrowser> CreateBrowser(PuppeteerBrowserSpecificaiton parameter, CancellationToken cancellationToken)
     {
+        logger.LogDebug("Creating new browser {Parameter}", parameter);
         await _browserInitializeMutex.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -138,7 +130,8 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            var launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken);
+            var launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken).ConfigureAwait(false);
+            logger.LogDebug("Starting browser with {LaunchOptions}", launchOptions);
             cancellationToken.ThrowIfCancellationRequested();
             var newBrowser = await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
 
@@ -160,10 +153,10 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
 
     private async Task<LaunchOptions> CreateLaunchOptionsAsync(PuppeteerBrowserSpecificaiton parameter, CancellationToken cancellationToken = default)
     {
-        var installedBrowser = await _puppeteerBrowsers.GetBrowser(parameter.SupportedBrowser, cancellationToken).ConfigureAwait(false);
+        var installedBrowser = await puppeteerBrowsers.GetBrowser(parameter.SupportedBrowser, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        var proxy = _proxyProvider is null ? null : (await _proxyProvider.GetProxyAsync(cancellationToken));
-        return new LaunchOptions()
+        var proxy = proxyProvider is null ? null : await proxyProvider.GetProxyAsync(cancellationToken).ConfigureAwait(false);
+        return new LaunchOptions
         {
             ExecutablePath = installedBrowser.GetExecutablePath(),
             Headless = parameter.Headless,
@@ -242,7 +235,7 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
         ObjectDisposedException.ThrowIf(_disposed, this);
 #else
         if (_disposed) {
-            throw new ObjectDisposedException(this.GetType().FullName);
+            throw new ObjectDisposedException(GetType().FullName);
         }
 #endif
         if (_operationStarted)
@@ -258,7 +251,7 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
         ObjectDisposedException.ThrowIf(_disposed, this);
 #else
         if (_disposed) {
-            throw new ObjectDisposedException(this.GetType().FullName);
+            throw new ObjectDisposedException(GetType().FullName);
         }
 #endif
 
@@ -289,23 +282,19 @@ public interface IPuppeteerPageHandlerBuilder
 
 internal sealed class LazyInitializationPageHandlerBuilder(IPuppeteerBrowserProvider browserProvider) : IPuppeteerPageHandlerBuilder
 {
-    private readonly IPuppeteerBrowserProvider _browserProvider = browserProvider;
-
     public PuppeteerBrowserSpecificaiton BrowserSpecification { get; set; } = new();
 
     public IPuppeteerPageHandler Build()
     {
-        return new Handler(BrowserSpecification, _browserProvider);
+        return new Handler(BrowserSpecification, browserProvider);
     }
 
     private sealed class Handler(PuppeteerBrowserSpecificaiton specificaiton, IPuppeteerBrowserProvider browserProvider) : IPuppeteerPageHandler, IAsyncDisposable
     {
-        private readonly PuppeteerBrowserSpecificaiton _specificaiton = specificaiton;
-        private readonly IPuppeteerBrowserProvider _browserProvider = browserProvider;
         private readonly SemaphoreSlim _createPageMutex = new(1, 1);
         private IPage? _page;
 
-        public PuppeteerBrowserSpecificaiton BrowserSpecificaiton => _specificaiton;
+        public PuppeteerBrowserSpecificaiton BrowserSpecificaiton => specificaiton;
 
         public ValueTask DisposeAsync()
         {
@@ -315,6 +304,7 @@ internal sealed class LazyInitializationPageHandlerBuilder(IPuppeteerBrowserProv
                 return page.DisposeAsync();
             }
 
+            _createPageMutex.Dispose();
             return default;
         }
 
@@ -338,7 +328,7 @@ internal sealed class LazyInitializationPageHandlerBuilder(IPuppeteerBrowserProv
                 {
                     return page;
                 }
-                var browser = await _browserProvider.GetBrowser(_specificaiton, cancellationToken).ConfigureAwait(false);
+                var browser = await browserProvider.GetBrowser(specificaiton, cancellationToken).ConfigureAwait(false);
                 page = await browser.NewPageAsync().ConfigureAwait(false);
                 _ = Interlocked.CompareExchange(ref _page, page, null);
                 return page;
@@ -360,7 +350,7 @@ internal sealed class ActiveHandlerTrackingEntry(
     IServiceScope? scope,
     TimeSpan lifetime)
 {
-    private static readonly TimerCallback s_timerCallback = (s) => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
+    private static readonly TimerCallback s_timerCallback = s => ((ActiveHandlerTrackingEntry)s!).Timer_Tick();
     private readonly object _lock = new();
     private bool _timerInitialized;
     private Timer? _timer;
@@ -433,7 +423,7 @@ internal sealed class ExpiredHandlerTrackingEntry(ActiveHandlerTrackingEntry oth
 
     public IPuppeteerPageHandler InnerHandler { get; } = other.Handler.InnerHandler!;
 
-    public PuppeteerBrowserSpecificaiton BrowserSpecificaiton { get; } = other.BrowserSpecificaiton;
+    public PuppeteerBrowserSpecificaiton BrowserSpecification { get; } = other.BrowserSpecificaiton;
 
     public IServiceScope? Scope { get; } = other.Scope;
 }
@@ -441,13 +431,13 @@ internal sealed class ExpiredHandlerTrackingEntry(ActiveHandlerTrackingEntry oth
 public sealed class PuppeteerPageHandlerFactoryOptions : IOptions<PuppeteerPageHandlerFactoryOptions>
 {
     public TimeSpan HandlerLifetime { get; set; } = TimeSpan.FromMinutes(2);
-    public bool SuppressServiceScope { get; set; } = false;
+    public bool SuppressServiceScope { get; set; }
     PuppeteerPageHandlerFactoryOptions IOptions<PuppeteerPageHandlerFactoryOptions>.Value => this;
 }
 
 internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 {
-    private static readonly TimerCallback s_cleanupCallback = (s) => ((DefaultPuppeteerPageHandlerFactory)s!).CleanupTimer_Tick();
+    private static readonly TimerCallback s_cleanupCallback = s => ((DefaultPuppeteerPageHandlerFactory)s!).CleanupTimer_Tick();
     private readonly IServiceProvider _services;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptionsMonitor<PuppeteerPageHandlerFactoryOptions> _options;
@@ -466,7 +456,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     //
     // There's no need for the factory itself to be disposable. If you stop using it, eventually everything will
     // get reclaimed.
-    private System.Threading.Timer? _cleanupTimer;
+    private Timer? _cleanupTimer;
     private readonly object _cleanupTimerLock = new();
     private readonly object _cleanupActiveLock = new();
 
@@ -496,7 +486,7 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
         _scopeFactory = scopeFactory;
         _options = options;
 
-        _entryFactory = (browserSpecification) => new Lazy<ActiveHandlerTrackingEntry>(() => CreateHandlerEntry(browserSpecification), LazyThreadSafetyMode.ExecutionAndPublication);
+        _entryFactory = browserSpecification => new Lazy<ActiveHandlerTrackingEntry>(() => CreateHandlerEntry(browserSpecification), LazyThreadSafetyMode.ExecutionAndPublication);
 
         _expiryCallback = ExpiryTimer_Tick;
 
@@ -537,7 +527,9 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
             var builder = services.GetRequiredService<IPuppeteerPageHandlerBuilder>();
             builder.BrowserSpecification = browserSpecification;
             // Wrap the handler so we can ensure the inner handler outlives the outer handler.
+#pragma warning disable CA2000
             LifetimeTrackingPageHandler handler = new(builder.Build());
+#pragma warning restore CA2000
 
             // Note that we can't start the timer here. That would introduce a very very subtle race condition
             // with very short expiry times. We need to wait until we've actually handed out the handler once
@@ -651,14 +643,18 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
                     {
                         if (entry.InnerHandler is IAsyncDisposable asyncDisposable)
                         {
-                            _ = asyncDisposable.DisposeAsync();
+                            var maybeTask = asyncDisposable.DisposeAsync();
+                            if (!maybeTask.IsCompletedSuccessfully)
+                            {
+                                _ = Task.Run(async () => await maybeTask.ConfigureAwait(false));
+                            }
                         }
                         entry.Scope?.Dispose();
                         disposedCount++;
                     }
                     catch (Exception ex)
                     {
-                        Log.CleanupItemFailed(_logger, entry.BrowserSpecificaiton, ex);
+                        Log.CleanupItemFailed(_logger, entry.BrowserSpecification, ex);
                     }
                 }
                 else
@@ -762,12 +758,9 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
 
 internal sealed class RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handler, ICookiesStorage cookiesStorage) : IRawBrowserPageLoader
 {
-    private readonly IPuppeteerPageHandler _handler = handler;
-    private readonly ICookiesStorage _cookiesStorage = cookiesStorage;
-
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter pageParameter, CancellationToken cancellationToken = default)
     {
-        var page = await _handler.GetPageAsync(cancellationToken).ConfigureAwait(false);
+        var page = await handler.GetPageAsync(cancellationToken).ConfigureAwait(false);
         await ApplyCookiesStorage().ConfigureAwait(false);
         await ApplyNavigation().ConfigureAwait(false);
         await ApplyPageActionsAsync().ConfigureAwait(false);
@@ -784,12 +777,12 @@ internal sealed class RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handle
         async Task ApplyNavigation()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _ = await page.GoToAsync(pageParameter.Url.ToString(), new NavigationOptions() { WaitUntil = [WaitUntilNavigation.DOMContentLoaded] });
+            _ = await page.GoToAsync(pageParameter.Url.ToString(), new NavigationOptions { WaitUntil = [WaitUntilNavigation.DOMContentLoaded] }).ConfigureAwait(false);
         }
         async Task ApplyCookiesStorage()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var cookies = await _cookiesStorage.GetAsync(cancellationToken).ConfigureAwait(false);
+            var cookies = await cookiesStorage.GetAsync(cancellationToken).ConfigureAwait(false);
             await page.SetCookieAsync(cookies
                 .GetAllCookies()
                 .Select(cookie => cookie.ToPuppeteerCookie())
@@ -806,14 +799,12 @@ internal sealed class RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handle
 
 internal sealed class PollyPuppeteerBrowserPageLoader(IRawBrowserPageLoader rawBrowserPageLoader, ILogger<PollyPuppeteerBrowserPageLoader> logger, IOptions<PageLoaderOptions> options) : IBrowserPageLoader
 {
-    private readonly IRawBrowserPageLoader _rawBrowserPageLoader = rawBrowserPageLoader;
-    private readonly ILogger _logger = logger;
     private readonly PageLoaderOptions _options = options.Value;
 
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter parameter, CancellationToken cancellationToken = default)
     {
         var policy = _options.RequestPolicy ?? Policy.NoOpAsync();
-        var content = await policy.ExecuteAsync(async cancellationToken => await _rawBrowserPageLoader.LoadAsync(parameter, cancellationToken).ConfigureAwait(false), cancellationToken, continueOnCapturedContext: false).ConfigureAwait(false);
+        var content = await policy.ExecuteAsync(async cancellationToken => await rawBrowserPageLoader.LoadAsync(parameter, cancellationToken).ConfigureAwait(false), cancellationToken, continueOnCapturedContext: false).ConfigureAwait(false);
         return content;
     }
 }

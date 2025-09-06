@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-
 namespace ScrapeAAS.Utility;
 
 // A convenience API for interacting with System.Threading.Timer in a way

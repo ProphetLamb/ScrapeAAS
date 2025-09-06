@@ -23,10 +23,7 @@ internal sealed class MessagePipeDataflowPublisher<T> : IDataflowPublisher<T>
     }
 }
 
-public interface IMessagePipeDataflowSubscriber<T> : IDisposable
-{
-
-}
+public interface IMessagePipeDataflowSubscriber<T> : IDisposable;
 
 internal sealed class MessagePipeDataflowSubscriber<T>(IAsyncSubscriber<T> subscriber, IEnumerable<IAsyncMessageHandler<T>> handlers) : IMessagePipeDataflowSubscriber<T>
 {
@@ -41,11 +38,9 @@ internal sealed class MessagePipeDataflowSubscriber<T>(IAsyncSubscriber<T> subsc
 
 internal sealed class MessagePipeDataflowHandler<T>(IDataflowHandler<T> handler) : IAsyncMessageHandler<T>
 {
-    private readonly IDataflowHandler<T> _handler = handler;
-
     public ValueTask HandleAsync(T message, CancellationToken cancellationToken = default)
     {
-        return _handler.HandleAsync(message, cancellationToken);
+        return handler.HandleAsync(message, cancellationToken);
     }
 }
 

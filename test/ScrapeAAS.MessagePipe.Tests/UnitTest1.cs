@@ -34,25 +34,21 @@ public class Tests
 
 internal sealed class PupeeteerBrowserPageLoaderService(IServiceScopeFactory services) : BackgroundService
 {
-    private readonly IServiceScopeFactory _services = services;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await using var scope = _services.CreateAsyncScope();
+        await using var scope = services.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<IAsyncMessageHandler<BrowserPageLoadParameter>>();
         var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<BrowserPageLoadParameter>>();
-        await publisher.PublishAsync(new(new("https://www.google.com"), ImmutableArray<PageAction>.Empty, true), stoppingToken);
+        await publisher.PublishAsync(new(new("https://www.google.com"), ImmutableArray<PageAction>.Empty, true), stoppingToken).ConfigureAwait(false);
         Environment.Exit(0);
     }
 }
 
 internal sealed class BrowserPageLoadHandler(ILogger<BrowserPageLoadHandler> logger) : IDataflowHandler<BrowserPageLoadParameter>
 {
-    private readonly ILogger<BrowserPageLoadHandler> _logger = logger;
-
     public async ValueTask HandleAsync(BrowserPageLoadParameter message, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Url: {Url}", message.Url);
-        await Task.Delay(10);
+        logger.LogInformation("Url: {Url}", message.Url);
+        await Task.Delay(10).ConfigureAwait(false);
     }
 }

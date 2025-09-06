@@ -27,14 +27,12 @@ public class Tests
 
 internal sealed class PupeeteerBrowserPageLoaderService(IServiceScopeFactory services) : BackgroundService
 {
-    private readonly IServiceScopeFactory _services = services;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var scope = _services.CreateScope();
+        using var scope = services.CreateScope();
         var page = scope.ServiceProvider.GetRequiredService<IBrowserPageLoader>();
-        var content = await page.LoadAsync(new Uri("https://www.google.com/"));
-        var html = await content.ReadAsStringAsync();
+        var content = await page.LoadAsync(new Uri("https://www.google.com/")).ConfigureAwait(false);
+        var html = await content.ReadAsStringAsync().ConfigureAwait(false);
 
         Environment.Exit(0);
     }

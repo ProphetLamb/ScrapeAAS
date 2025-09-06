@@ -1,12 +1,7 @@
-using System;
 using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
-using Microsoft.Extensions.Options;
-using Polly;
-using Polly.Contrib.WaitAndRetry;
-using Polly.RateLimit;
 
 namespace ScrapeAAS;
 
@@ -16,11 +11,10 @@ public static class StaticPageLoaderExtensions
     {
         configuration.Use(ScrapeAASRole.StaticPageLoader, (configuration, services) =>
         {
-            _ = services.AddHttpClient<IRawStaticPageLoader>()
+            _ = services.AddHttpClient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>()
                 .ConfigureHttpClient(ConfigureHttpClient)
                 .ConfigureHttpMessageHandlerBuilder(ConfigureMessageHandler);
 
-            _ = services.AddTransient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>();
             _ = services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
 
             static void ConfigureHttpClient(HttpClient client)

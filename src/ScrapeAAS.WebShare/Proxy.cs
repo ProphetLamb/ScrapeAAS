@@ -32,16 +32,15 @@ public interface IWebShareProxyListProvider
     ValueTask<IEnumerable<WebProxy>> GetProxyListAsync(CancellationToken cancellationToken = default);
 }
 
-public interface IRawWebShareProxyListProvider : IWebShareProxyListProvider { }
+public interface IRawWebShareProxyListProvider : IWebShareProxyListProvider;
 
 internal sealed class WebShareProxyListProvider(IOptions<WebShareProviderOptions> options, IHttpClientFactory httpClientFactory) : IRawWebShareProxyListProvider
 {
     private readonly WebShareProviderOptions _options = options.Value;
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
     public async ValueTask<IEnumerable<WebProxy>> GetProxyListAsync(CancellationToken cancellationToken = default)
     {
-        using var client = _httpClientFactory.CreateClient();
+        using var client = httpClientFactory.CreateClient();
 
         var reqUri = new UriBuilder("https://proxy.webshare.io/api/v2/proxy/list/")
         {
@@ -111,7 +110,6 @@ internal sealed class WebShareProxyListProvider(IOptions<WebShareProviderOptions
 
 internal sealed class CachedWebShareProxyProvider(IRawWebShareProxyListProvider proxyListProvider, IOptions<WebShareProviderOptions> options) : IWebShareProxyListProvider
 {
-    private readonly IRawWebShareProxyListProvider _proxyListProvider = proxyListProvider;
     private readonly WebShareProviderOptions _options = options.Value;
     private readonly object _entryTaskSwapLock = new();
     private Entry? _entry;
@@ -156,7 +154,7 @@ internal sealed class CachedWebShareProxyProvider(IRawWebShareProxyListProvider 
 
     private async ValueTask<IEnumerable<WebProxy>> RefreshProxyListCacheEntryAsync(CancellationToken cancellationToken)
     {
-        var proxyList = await _proxyListProvider.GetProxyListAsync(cancellationToken).ConfigureAwait(false);
+        var proxyList = await proxyListProvider.GetProxyListAsync(cancellationToken).ConfigureAwait(false);
         _entry = new(proxyList, TimeSpan.FromTicks(Stopwatch.GetTimestamp()));
         _entryTask = null;
         cancellationToken.ThrowIfCancellationRequested();
@@ -168,12 +166,10 @@ internal sealed class CachedWebShareProxyProvider(IRawWebShareProxyListProvider 
 
 internal sealed class RandomWebShareProxyProvider(IWebShareProxyListProvider proxyListProvider) : IProxyProvider
 {
-    private readonly IWebShareProxyListProvider _proxyListProvider = proxyListProvider;
-
     public async ValueTask<WebProxy> GetProxyAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var proxyList = await _proxyListProvider.GetProxyListAsync(cancellationToken).ConfigureAwait(false);
+        var proxyList = await proxyListProvider.GetProxyListAsync(cancellationToken).ConfigureAwait(false);
         return SelectRandomProxy(proxyList.ToImmutableArray());
     }
 

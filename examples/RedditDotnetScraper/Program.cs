@@ -41,27 +41,24 @@ internal sealed record RedditComment(Url PostUrl, Url? ParentCommentUrl, Url Com
 /// </summary>
 internal sealed class RedditSubredditCrawler(IServiceScopeFactory serviceScopeFactory, ILogger<RedditPostSpider> logger) : BackgroundService
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
-    private readonly ILogger<RedditPostSpider> _logger = logger;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await using (var scope = _serviceScopeFactory.CreateAsyncScope())
+            await using (var scope = serviceScopeFactory.CreateAsyncScope())
             {
                 var publisher = scope.ServiceProvider.GetRequiredService<IDataflowPublisher<RedditSubreddit>>();
-                await CrawlAsync(publisher, stoppingToken);
+                await CrawlAsync(publisher, stoppingToken).ConfigureAwait(false);
             }
-            await Task.Delay(TimeSpan.FromHours(3), stoppingToken);
+            await Task.Delay(TimeSpan.FromHours(3), stoppingToken).ConfigureAwait(false);
         }
     }
 
     private async Task CrawlAsync(IDataflowPublisher<RedditSubreddit> publisher, CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Crawling /r/dotnet");
-        await publisher.PublishAsync(new("dotnet", new("https://old.reddit.com/r/dotnet")), stoppingToken);
-        _logger.LogInformation("Crawling complete");
+        logger.LogInformation("Crawling /r/dotnet");
+        await publisher.PublishAsync(new("dotnet", new("https://old.reddit.com/r/dotnet")), stoppingToken).ConfigureAwait(false);
+        logger.LogInformation("Crawling complete");
     }
 }
 
@@ -70,20 +67,18 @@ internal sealed class RedditSubredditCrawler(IServiceScopeFactory serviceScopeFa
 /// </summary>
 internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDataflowPublisher<RedditPost> publisher, IAngleSharpBrowserPageLoader browserPageLoader) : IDataflowHandler<RedditSubreddit>
 {
-    private readonly IAngleSharpBrowserPageLoader _browserPageLoader = browserPageLoader;
     private readonly ILogger _logger = logger;
-    private readonly IDataflowPublisher<RedditPost> _publisher = publisher;
 
     public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
-        await ParseRedditTopLevelPosts(message, cancellationToken);
+        await ParseRedditTopLevelPosts(message, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ParseRedditTopLevelPosts(RedditSubreddit subreddit, CancellationToken stoppingToken)
     {
         Url root = new("https://old.reddit.com/");
         _logger.LogInformation("Parsing top level posts from {RedditSubreddit}", subreddit);
-        var document = await _browserPageLoader.LoadAsync(subreddit.Url, stoppingToken).ConfigureAwait(false);
+        var document = await browserPageLoader.LoadAsync(subreddit.Url, stoppingToken).ConfigureAwait(false);
         _logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.thing")
@@ -109,7 +104,7 @@ internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDatafl
             ), IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditTopLevelPostBrief}", item)));
         foreach (var item in queriedContent)
         {
-            await _publisher.PublishAsync(item, stoppingToken).ConfigureAwait(false);
+            await publisher.PublishAsync(item, stoppingToken).ConfigureAwait(false);
         }
         _logger.LogInformation("Parsing complete");
     }
@@ -120,20 +115,16 @@ internal sealed class RedditPostSpider(ILogger<RedditPostSpider> logger, IDatafl
 /// </summary>
 internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger, IDataflowPublisher<RedditComment> publisher, IAngleSharpBrowserPageLoader browserPageLoader) : IDataflowHandler<RedditPost>
 {
-    private readonly IAngleSharpBrowserPageLoader _browserPageLoader = browserPageLoader;
-    private readonly ILogger<RedditCommentsSpider> _logger = logger;
-    private readonly IDataflowPublisher<RedditComment> _publisher = publisher;
-
     public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
     {
-        await ParseRedditComments(message, cancellationToken);
+        await ParseRedditComments(message, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ParseRedditComments(RedditPost message, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Parsing comments from {RedditTopLevelPost}", message);
-        var document = await _browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Request complete");
+        logger.LogInformation("Parsing comments from {RedditTopLevelPost}", message);
+        var document = await browserPageLoader.LoadAsync(message.CommentsUrl, cancellationToken).ConfigureAwait(false);
+        logger.LogInformation("Request complete");
         var queriedContent = document
             .QuerySelectorAll("div.commentarea > div.sitetable.nestedlisting div.comment > div.entry")
             .AsParallel()
@@ -158,12 +149,12 @@ internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger,
                 DateTimeOffset.Parse(queried.PostedAt.AsSpan()),
                 new(Guard.Argument(queried.PostedBy).NotEmpty())
             ),
-            IExceptionHandler.Handle((ex, item) => _logger.LogInformation(ex, "Failed to parse {RedditComment}", item)));
+            IExceptionHandler.Handle((ex, item) => logger.LogInformation(ex, "Failed to parse {RedditComment}", item)));
         foreach (var comment in queriedContent)
         {
-            await _publisher.PublishAsync(comment, cancellationToken).ConfigureAwait(false);
+            await publisher.PublishAsync(comment, cancellationToken).ConfigureAwait(false);
         }
-        _logger.LogInformation("Parsing complete");
+        logger.LogInformation("Parsing complete");
     }
 }
 
@@ -172,44 +163,41 @@ internal sealed class RedditCommentsSpider(ILogger<RedditCommentsSpider> logger,
 /// </summary>
 internal sealed class RedditSqliteSink(RedditPostSqliteContext context, IMapper mapper) : IAsyncDisposable, IDataflowHandler<RedditSubreddit>, IDataflowHandler<RedditPost>, IDataflowHandler<RedditComment>
 {
-    private readonly RedditPostSqliteContext _context = context;
-    private readonly IMapper _mapper = mapper;
-
     public async ValueTask DisposeAsync()
     {
-        _ = await _context.Database.EnsureCreatedAsync();
-        _ = await _context.SaveChangesAsync();
+        _ = await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        _ = await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     public async ValueTask HandleAsync(RedditSubreddit message, CancellationToken cancellationToken = default)
     {
-        var messageDto = _mapper.Map<RedditSubredditDto>(message);
-        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
-        _ = await _context.Subreddits.AddAsync(messageDto, cancellationToken);
+        var messageDto = mapper.Map<RedditSubredditDto>(message);
+        _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        _ = await context.Subreddits.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask HandleAsync(RedditPost message, CancellationToken cancellationToken = default)
     {
-        var messageDto = _mapper.Map<RedditPostDto>(message);
-        if (await _context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken) is { } existingUser)
+        var messageDto = mapper.Map<RedditPostDto>(message);
+        if (await context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken).ConfigureAwait(false) is { } existingUser)
         {
             messageDto.PostedById = existingUser.Id;
             messageDto.PostedBy = existingUser;
         }
-        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
-        _ = await _context.Posts.AddAsync(messageDto, cancellationToken);
+        _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        _ = await context.Posts.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask HandleAsync(RedditComment message, CancellationToken cancellationToken = default)
     {
-        var messageDto = _mapper.Map<RedditCommentDto>(message);
-        if (await _context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken) is { } existingUser)
+        var messageDto = mapper.Map<RedditCommentDto>(message);
+        if (await context.Users.FindAsync(new object[] { message.PostedBy.Id }, cancellationToken).ConfigureAwait(false) is { } existingUser)
         {
             messageDto.PostedById = existingUser.Id;
             messageDto.PostedBy = existingUser;
         }
-        _ = await _context.Database.EnsureCreatedAsync(cancellationToken);
-        _ = await _context.Comments.AddAsync(messageDto, cancellationToken);
+        _ = await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        _ = await context.Comments.AddAsync(messageDto, cancellationToken).ConfigureAwait(false);
     }
 }
 
