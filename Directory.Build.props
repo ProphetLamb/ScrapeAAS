@@ -41,10 +41,10 @@
   </PropertyGroup>
 
   <ItemGroup Label="Package References">
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" Version="1.0.3" Condition="'$(DotnetFramework)' == 'true'" />
-    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" Version="17.7.30" />
-    <PackageReference Include="MinVer" PrivateAssets="all" Version="4.3.0" />
-    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" Version="1.2.0-beta.507" Condition="'$(StyleCop)' == 'true'" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" Condition="'$(DotnetFramework)' == 'true'" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="MinVer" PrivateAssets="all"/>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" Condition="'$(StyleCop)' == 'true'" />
   </ItemGroup>
 
 </Project>

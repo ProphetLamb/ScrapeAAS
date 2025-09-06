@@ -53,7 +53,7 @@ internal sealed class PuppeteerInstallationProvider(ILogger<PuppeteerInstallatio
         {
             _logger.LogDebug("Ensuring Puppeteer browser executable is installed");
 
-            using BrowserFetcher browserFetcher = new(new BrowserFetcherOptions
+            BrowserFetcher browserFetcher = new(new BrowserFetcherOptions
             {
                 Browser = SupportedBrowser.Chrome,
                 Path = _puppeteerBrowserOptions.ExecutablePath,
@@ -210,7 +210,7 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
         get
         {
             SetOperationStarted();
-            return _innerHandler.BrowserSpecificaiton;
+            return _innerHandler!.BrowserSpecificaiton;
         }
     }
 
@@ -226,18 +226,12 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
     public ValueTask<IPage> GetPageAsync(CancellationToken cancellationToken = default)
     {
         SetOperationStarted();
-        return _innerHandler.GetPageAsync(cancellationToken);
+        return _innerHandler!.GetPageAsync(cancellationToken);
     }
 
     private void CheckDisposedOrStarted()
     {
-#if NET7_0_OR_GREATER
         ObjectDisposedException.ThrowIf(_disposed, this);
-#else
-        if (_disposed) {
-            throw new ObjectDisposedException(GetType().FullName);
-        }
-#endif
         if (_operationStarted)
         {
             throw new InvalidOperationException("The handler has already started one or more requests. Properties can only be modified before sending the first request.");
@@ -247,13 +241,7 @@ internal sealed class LifetimeTrackingPageHandler : IPuppeteerPageHandler, IDisp
     [MemberNotNull(nameof(_innerHandler))]
     private void SetOperationStarted()
     {
-#if NET7_0_OR_GREATER
         ObjectDisposedException.ThrowIf(_disposed, this);
-#else
-        if (_disposed) {
-            throw new ObjectDisposedException(GetType().FullName);
-        }
-#endif
 
         if (_innerHandler is null)
         {

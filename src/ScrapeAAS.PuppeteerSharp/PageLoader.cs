@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -33,7 +34,7 @@ public static class PuppeteerBrowserExtensions
         cancellationToken.ThrowIfCancellationRequested();
         return pageAction.Type switch
         {
-            PageActionType.Click when pageAction.TryGetClick(out var selector) => page.ClickAsync(selector, new() { Delay = Random.Shared.Next(50, 400) }),
+            PageActionType.Click when pageAction.TryGetClick(out var selector) => page.ClickAsync(selector, new() { Delay = RandomNumberGenerator.GetInt32(50, 400) }),
             PageActionType.Wait when pageAction.TryGetWait(out var milliseconds) => Task.Delay(milliseconds, cancellationToken),
             PageActionType.ScrollToEnd => page.EvaluateExpressionAsync("window.scrollTo(0, document.body.scrollHeight);"),
             PageActionType.EvaluateExpression when pageAction.TryGetEvaluateExpression(out var expression) => page.EvaluateExpressionAsync(expression),

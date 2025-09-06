@@ -187,6 +187,7 @@ public static class DataflowExtensions
                 .DistinctBy(x => x.GenericTypeArguments[0])
                 .ToArray();
 
+
             if (interfaces.Length == 0)
             {
                 throw new ArgumentException($"Type {implementationType} does not implement IDataflowHandler<T>", nameof(implementationType));

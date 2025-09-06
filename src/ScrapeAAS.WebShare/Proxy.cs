@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace ScrapeAAS;
@@ -175,7 +176,7 @@ internal sealed class RandomWebShareProxyProvider(IWebShareProxyListProvider pro
 
     private WebProxy SelectRandomProxy(ImmutableArray<WebProxy> proxyList)
     {
-        var proxyIndex = Random.Shared.Next(proxyList.Length);
+        var proxyIndex = RandomNumberGenerator.GetInt32(proxyList.Length);
         return proxyList[proxyIndex];
     }
 }

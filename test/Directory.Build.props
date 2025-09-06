@@ -1,13 +1,23 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
+<Project>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <RootNamespace>ScrapeAAS.Tests</RootNamespace>
   </PropertyGroup>
 
-  <ItemGroup>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,19 +30,6 @@
     <ProjectReference Include="..\..\src\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
     <ProjectReference Include="..\..\src\ScrapeAAS.Polly\ScrapeAAS.Polly.csproj" />
     <ProjectReference Include="..\..\src\ScrapeAAS.PuppeteerSharp\ScrapeAAS.PuppeteerSharp.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection"/>
-    <PackageReference Include="Dawn.Guard" />
-    <PackageReference Include="Microsoft.Data.SQLite" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Polly.Contrib.WaitAndRetry" />
   </ItemGroup>
 
 </Project>

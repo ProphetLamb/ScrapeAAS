@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0,net8.0;net6.0</TargetFrameworks>
-
     <RootNamespace>ScrapeAAS</RootNamespace>
   </PropertyGroup>
 
@@ -13,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessagePipe" Version="1.7.4" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
+    <PackageReference Include="MessagePipe" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>

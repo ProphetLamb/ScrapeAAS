@@ -5,9 +5,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.0.5" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.1" />
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
   </ItemGroup>
 
   <PropertyGroup Label="Package">
@@ -17,8 +17,6 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0,net8.0;net6.0</TargetFrameworks>
-
     <RootNamespace>ScrapeAAS</RootNamespace>
   </PropertyGroup>
 
