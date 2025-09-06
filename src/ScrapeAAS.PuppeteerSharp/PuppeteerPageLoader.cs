@@ -17,6 +17,12 @@ public sealed class PuppeteerBrowserOptions : IOptions<PuppeteerBrowserOptions>
 
     public TimeSpan? BrowserSlidingExpiration { get; set; }
 
+    public Action<BrowserFetcherOptions>? ConfigureBrowserFetcher { get; set; }
+
+    public Action<LaunchOptions>? ConfigureLaunchOptions { get; set; }
+    
+    public Action<IBrowser>? ConfigureBrowser { get; set; }
+
     PuppeteerBrowserOptions IOptions<PuppeteerBrowserOptions>.Value => this;
 }
 
@@ -53,13 +59,15 @@ internal sealed class PuppeteerInstallationProvider(ILogger<PuppeteerInstallatio
         {
             _logger.LogDebug("Ensuring Puppeteer browser executable is installed");
 
-            BrowserFetcher browserFetcher = new(new BrowserFetcherOptions
+            var browserFetcherOptions = new BrowserFetcherOptions
             {
                 Browser = SupportedBrowser.Chrome,
                 Path = _puppeteerBrowserOptions.ExecutablePath,
-            });
+            };
+            browserOptions.Value.ConfigureBrowserFetcher?.Invoke(browserFetcherOptions);
+            BrowserFetcher browserFetcher = new(browserFetcherOptions);
 
-            if (browserFetcher.GetInstalledBrowsers().FirstOrDefault(browser => browser.Browser == SupportedBrowser.Chrome) is { } installedBrowser)
+            if (browserFetcher.GetInstalledBrowsers().FirstOrDefault(browser => browser.Browser == browserFetcherOptions.Browser) is { } installedBrowser)
             {
                 _logger.LogDebug("Puppeteer browser executable is already installed");
                 return installedBrowser;
@@ -87,7 +95,7 @@ public interface IPuppeteerBrowserProvider
 
 public sealed record PuppeteerBrowserSpecificaiton(SupportedBrowser SupportedBrowser = SupportedBrowser.Chrome, bool Headless = true);
 
-internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IProxyProvider? proxyProvider = null) : IPuppeteerBrowserProvider, IAsyncDisposable
+internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider puppeteerBrowsers, ILogger<PuppeteerBrowserProvider> logger, IOptions<PuppeteerBrowserOptions> browserOptions, IProxyProvider? proxyProvider = null) : IPuppeteerBrowserProvider, IAsyncDisposable
 {
     private readonly SemaphoreSlim _browserInitializeMutex = new(1, 1);
     private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = [];
@@ -100,20 +108,16 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
             .Select(disposeTask => disposeTask.AsTask())
             .ToArray();
         _browsers.Clear();
+        _browserInitializeMutex.Dispose();
         if (activeDisposeTasks.Length > 0)
         {
             return new(Task.WhenAll(activeDisposeTasks));
         }
-        _browserInitializeMutex.Dispose();
         return default;
     }
 
     public ValueTask<IBrowser> GetBrowser(PuppeteerBrowserSpecificaiton parameter, CancellationToken cancellationToken = default)
     {
-        if (_browsers.GetValueOrDefault(parameter) is { } browser)
-        {
-            return new(browser);
-        }
         return new(CreateBrowser(parameter, cancellationToken));
     }
 
@@ -137,6 +141,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
 
             if (_browsers.TryAdd(parameter, newBrowser))
             {
+                browserOptions.Value.ConfigureBrowser?.Invoke(newBrowser);
                 return newBrowser;
             }
             else
@@ -156,12 +161,14 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
         var installedBrowser = await puppeteerBrowsers.GetBrowser(parameter.SupportedBrowser, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         var proxy = proxyProvider is null ? null : await proxyProvider.GetProxyAsync(cancellationToken).ConfigureAwait(false);
-        return new LaunchOptions
+        var launchOptions = new LaunchOptions
         {
             ExecutablePath = installedBrowser.GetExecutablePath(),
             Headless = parameter.Headless,
             Args = GetArguments().ToArray(),
         };
+        browserOptions.Value.ConfigureLaunchOptions?.Invoke(launchOptions);
+        return launchOptions;
 
         IEnumerable<string> GetArguments()
         {
@@ -432,12 +439,12 @@ internal class DefaultPuppeteerPageHandlerFactory : IPuppeteerPageHandlerFactory
     private readonly Func<PuppeteerBrowserSpecificaiton, Lazy<ActiveHandlerTrackingEntry>> _entryFactory;
     private readonly Lazy<ILogger> _logger;
 
-    // Default time of 10s for cleanup seems reasonable.
+    // Default time of 60s for cleanup seems reasonable.
     // Quick math:
     // 10 distinct named clients * expiry time >= 1s = approximate cleanup queue of 100 items
     //
     // This seems frequent enough. We also rely on GC occurring to actually trigger disposal.
-    private readonly TimeSpan _defaultCleanupInterval = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan _defaultCleanupInterval = TimeSpan.FromSeconds(60);
 
     // We use a new timer for each regular cleanup cycle, protected with a lock. Note that this scheme
     // doesn't give us anything to dispose, as the timer is started/stopped as needed.
@@ -787,11 +794,9 @@ internal sealed class RawPuppeteerBrowserPageLoader(IPuppeteerPageHandler handle
 
 internal sealed class PollyPuppeteerBrowserPageLoader(IRawBrowserPageLoader rawBrowserPageLoader, ILogger<PollyPuppeteerBrowserPageLoader> logger, IOptions<PageLoaderOptions> options) : IBrowserPageLoader
 {
-    private readonly PageLoaderOptions _options = options.Value;
-
     public async Task<HttpContent> LoadAsync(BrowserPageLoadParameter parameter, CancellationToken cancellationToken = default)
     {
-        var policy = _options.RequestPolicy ?? Policy.NoOpAsync();
+        var policy = options.Value.RequestPolicy ?? Policy.NoOpAsync();
         var content = await policy.ExecuteAsync(async cancellationToken => await rawBrowserPageLoader.LoadAsync(parameter, cancellationToken).ConfigureAwait(false), cancellationToken, continueOnCapturedContext: false).ConfigureAwait(false);
         return content;
     }

@@ -1,23 +1,22 @@
 using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http;
 
 namespace ScrapeAAS;
 
 public static class StaticPageLoaderExtensions
 {
-    public static IScrapeAASConfiguration UseHttpClientStaticPageLoader(this IScrapeAASConfiguration configuration)
+    public static IScrapeAASConfiguration UseHttpClientStaticPageLoader(this IScrapeAASConfiguration configuration, Action<IServiceProvider, HttpClient, Action<HttpClient>>? configureHttpClient = null, Func<IServiceProvider, Func<IServiceProvider, HttpMessageHandler>, HttpMessageHandler>? configurePrimaryMessageHandler = null)
     {
         configuration.Use(ScrapeAASRole.StaticPageLoader, (configuration, services) =>
         {
             _ = services.AddHttpClient<IRawStaticPageLoader, RawHttpClientStaticPageLoader>()
-                .ConfigureHttpClient(ConfigureHttpClient)
-                .ConfigureHttpMessageHandlerBuilder(ConfigureMessageHandler);
+                .ConfigureHttpClient(configureHttpClient is null ? ConfigureHttpClient : (sp, c) => configureHttpClient(sp, c, c => ConfigureHttpClient(sp, c)))
+                .ConfigurePrimaryHttpMessageHandler(configurePrimaryMessageHandler is null ? ConfigureMessageHandler : sp => configurePrimaryMessageHandler(sp, ConfigureMessageHandler));
 
             _ = services.AddTransient<IStaticPageLoader, PollyHttpClientStaticPageLoader>();
 
-            static void ConfigureHttpClient(HttpClient client)
+            static void ConfigureHttpClient(IServiceProvider sp, HttpClient client)
             {
                 AddDefaultRequestHeaders(client.DefaultRequestHeaders);
                 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
@@ -38,20 +37,21 @@ public static class StaticPageLoaderExtensions
                 headers.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36");
             }
 
-            static void ConfigureMessageHandler(HttpMessageHandlerBuilder builder)
+            static HttpMessageHandler ConfigureMessageHandler(IServiceProvider services)
             {
-                var proxyProvider = builder.Services.GetService<IProxyProvider>();
-                var cookiesStorage = builder.Services.GetService<ICookiesStorage>();
+                var proxyProvider = services.GetService<IProxyProvider>();
+                var cookiesStorage = services.GetService<ICookiesStorage>();
                 HttpClientHandler handler = new();
                 if (proxyProvider is not null)
                 {
-                    handler.Proxy = proxyProvider.GetProxyAsync().GetAwaiter().GetResult();
+                    handler.Proxy = proxyProvider.GetProxyAsync().AsTask().GetAwaiter().GetResult();
                 }
                 if (cookiesStorage is not null)
                 {
-                    handler.CookieContainer = cookiesStorage.GetAsync().GetAwaiter().GetResult();
+                    handler.CookieContainer = cookiesStorage.GetAsync().AsTask().GetAwaiter().GetResult();
                 }
-                builder.PrimaryHandler = handler;
+
+                return handler;
             }
         });
 
