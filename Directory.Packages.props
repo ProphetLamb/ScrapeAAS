@@ -17,7 +17,7 @@
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.8" />
     <PackageVersion Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
     <PackageVersion Include="Polly" Version="8.6.3" />
-    <PackageVersion Include="PuppeteerSharp" Version="20.2.2" />
+    <PackageVersion Include="PuppeteerExtraSharp" Version="3.0.1" />
     <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />
     <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
     <PackageVersion Include="MinVer" Version="6.0.0" />

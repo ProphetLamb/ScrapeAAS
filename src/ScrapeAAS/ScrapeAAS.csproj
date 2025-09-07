@@ -19,7 +19,7 @@
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" />
     <PackageReference Include="Polly" />
-    <PackageReference Include="PuppeteerSharp" />
+    <PackageReference Include="PuppeteerExtraSharp" />
   </ItemGroup>
 
   <PropertyGroup>

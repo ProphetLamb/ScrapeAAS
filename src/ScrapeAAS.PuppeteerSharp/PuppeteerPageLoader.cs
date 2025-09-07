@@ -5,6 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
+using PuppeteerExtraSharp;
+using PuppeteerExtraSharp.Plugins.ExtraStealth;
+using PuppeteerExtraSharp.Plugins.ExtraStealth.Evasions;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
 using ScrapeAAS.Utility;
@@ -20,8 +23,10 @@ public sealed class PuppeteerBrowserOptions : IOptions<PuppeteerBrowserOptions>
     public Action<BrowserFetcherOptions>? ConfigureBrowserFetcher { get; set; }
 
     public Action<LaunchOptions>? ConfigureLaunchOptions { get; set; }
-    
+
     public Action<IBrowser>? ConfigureBrowser { get; set; }
+
+    public Action<PuppeteerExtra>? ConfigureExtra { get; set; }
 
     PuppeteerBrowserOptions IOptions<PuppeteerBrowserOptions>.Value => this;
 }
@@ -99,6 +104,7 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
 {
     private readonly SemaphoreSlim _browserInitializeMutex = new(1, 1);
     private readonly Dictionary<PuppeteerBrowserSpecificaiton, IBrowser> _browsers = [];
+    private PuppeteerExtra? _extra;
 
     public ValueTask DisposeAsync()
     {
@@ -137,7 +143,8 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
             var launchOptions = await CreateLaunchOptionsAsync(parameter, cancellationToken).ConfigureAwait(false);
             logger.LogDebug("Starting browser with {LaunchOptions}", launchOptions);
             cancellationToken.ThrowIfCancellationRequested();
-            var newBrowser = await Puppeteer.LaunchAsync(launchOptions).ConfigureAwait(false);
+            var e = GetOrCreateExtra();
+            var newBrowser = await e.LaunchAsync(launchOptions).ConfigureAwait(false);
 
             if (_browsers.TryAdd(parameter, newBrowser))
             {
@@ -154,6 +161,25 @@ internal sealed class PuppeteerBrowserProvider(IPuppeteerInstallationProvider pu
         {
             _ = _browserInitializeMutex.Release();
         }
+    }
+
+    private PuppeteerExtra GetOrCreateExtra()
+    {
+        if (_extra is { } e)
+        {
+            return e;
+        }
+
+        e = new PuppeteerExtra();
+        if (browserOptions.Value.ConfigureExtra is { } configure)
+        {
+            configure(e);
+        }
+        else
+        {
+            _ = e.Use(new StealthPlugin(new StealthHardwareConcurrencyOptions(6), new StealthVendorSettings("Google Inc."), new StealthWebGLOptions("Intel Inc.", "Intel Iris OpenGL Engine")));
+        }
+        return e;
     }
 
     private async Task<LaunchOptions> CreateLaunchOptionsAsync(PuppeteerBrowserSpecificaiton parameter, CancellationToken cancellationToken = default)
