@@ -61,7 +61,7 @@ deploy:
       APPVEYOR_REPO_TAG: true
     description: "Updated the ScrapeAAS library"
     auth_token:
-      secure: ELkrjjhdnv6psdBBfZ2jLlfJLDoOvBwzq3i3ohk+Ai99Zfyn2qTRYig9VQRx2WV2
+      secure: SdasydzHH9f2Gpv1yPBDwnVrKPUcfOXkyZNFClq2/Pnc+t3IO1Q32l3OKBtfCR0QaN4KUfG4Rp4PwQwHkQQScCi5rfoCM/XXHWaJXre+p4IPoQZveifUXzp+Et71Zc/0
     artifact: /.*(\.|\.s)nupkg/
     draft: false
     prerelease: false
